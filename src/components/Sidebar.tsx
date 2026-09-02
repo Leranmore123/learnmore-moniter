@@ -17,7 +17,8 @@ import {
   MessageSquare,
   Radio,
   Settings,
-  LogOut
+  LogOut,
+  GraduationCap
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -41,6 +42,7 @@ export default function Sidebar() {
 
   const links = [
     { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
+    { href: '/admin/courses', label: 'Courses & Syllabus', icon: GraduationCap },
     { href: '/admin/batches', label: 'Batches', icon: BookOpen },
     { href: '/admin/trainers', label: 'Trainers', icon: Users },
     { href: '/admin/attendance', label: 'Attendance', icon: Camera },

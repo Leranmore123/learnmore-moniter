@@ -29,7 +29,7 @@ import {
   isDateWeekOff,
   isDateHoliday
 } from './holidays';
-import { INSTITUTE_COURSES } from './syllabusData';
+import { CourseSyllabus, INSTITUTE_COURSES } from './syllabusData';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'institute_db.json');
@@ -47,6 +47,7 @@ interface DatabaseSchema {
   leaveBalances?: Record<string, TrainerLeaveBalance>;
   leaveAuditLogs?: LeaveAuditLog[];
   holidayConfig?: HolidayConfig;
+  courses?: CourseSyllabus[];
 }
 
 function getInitialData(): DatabaseSchema {
@@ -530,6 +531,61 @@ export class DB {
     data.sessions = data.sessions.filter((s) => s.batch_id !== id);
     this.saveDB(data);
     return true;
+  }
+
+  // --- Courses & Syllabuses ---
+  static getCourses(): CourseSyllabus[] {
+    const data = this.ensureDB();
+    if (!data.courses || data.courses.length === 0) {
+      data.courses = [...INSTITUTE_COURSES];
+      this.saveDB(data);
+    }
+    return data.courses;
+  }
+
+  static getCourseById(id: string): CourseSyllabus | undefined {
+    return this.getCourses().find((c) => c.id === id);
+  }
+
+  static createCourse(course: Omit<CourseSyllabus, 'id'> & { id?: string }): CourseSyllabus {
+    const data = this.ensureDB();
+    if (!data.courses || data.courses.length === 0) {
+      data.courses = [...INSTITUTE_COURSES];
+    }
+    const id = course.id || `course_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+    const newCourse: CourseSyllabus = {
+      ...course,
+      id,
+    };
+    data.courses.push(newCourse);
+    this.saveDB(data);
+    return newCourse;
+  }
+
+  static updateCourse(id: string, updates: Partial<CourseSyllabus>): CourseSyllabus | null {
+    const data = this.ensureDB();
+    if (!data.courses || data.courses.length === 0) {
+      data.courses = [...INSTITUTE_COURSES];
+    }
+    const idx = data.courses.findIndex((c) => c.id === id);
+    if (idx === -1) return null;
+    data.courses[idx] = { ...data.courses[idx], ...updates };
+    this.saveDB(data);
+    return data.courses[idx];
+  }
+
+  static deleteCourse(id: string): boolean {
+    const data = this.ensureDB();
+    if (!data.courses || data.courses.length === 0) {
+      data.courses = [...INSTITUTE_COURSES];
+    }
+    const initialLen = data.courses.length;
+    data.courses = data.courses.filter((c) => c.id !== id);
+    if (data.courses.length !== initialLen) {
+      this.saveDB(data);
+      return true;
+    }
+    return false;
   }
 
   // --- Work Sessions ---
