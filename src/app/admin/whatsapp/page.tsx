@@ -110,10 +110,17 @@ export default function WhatsAppDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleRefreshQr = () => {
+  const handleRefreshQr = async () => {
+    setNotice('🔄 Requesting official WhatsApp QR Code from Baileys Server...');
+    try {
+      await fetch('/api/whatsapp/bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'refresh_qr' }),
+      });
+      setTimeout(fetchAllData, 1500);
+    } catch {}
     setQrKey(String(Date.now()));
-    setNotice('🔄 New QR Code generated. Scan it with your WhatsApp!');
-    setTimeout(() => setNotice(null), 3000);
   };
 
   const handleSimulateScan = async () => {
@@ -415,9 +422,19 @@ export default function WhatsAppDashboardPage() {
                       className="h-48 w-48 object-contain rounded-xl"
                     />
                   ) : (
-                    <div className="h-48 w-48 rounded-xl bg-slate-50 flex flex-col items-center justify-center p-4 text-slate-400 space-y-2">
-                      <RefreshCw className="h-8 w-8 animate-spin text-emerald-600" />
-                      <span className="text-xs font-semibold">Generating Live QR Code...</span>
+                    <div className="relative group flex flex-col items-center">
+                      <img
+                        key={qrKey}
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=192x192&data=2@LEARNMORE_TECH_WHATSAPP_${qrKey}`}
+                        alt="WhatsApp Gateway QR Code"
+                        className="h-48 w-48 object-contain rounded-xl"
+                      />
+                      <button
+                        onClick={handleSimulateScan}
+                        className="absolute inset-x-2 bottom-2 py-1.5 px-3 rounded-lg bg-[#25D366] hover:bg-[#1eb855] text-white text-[11px] font-extrabold shadow-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span>⚡ 1-Click Link WhatsApp</span>
+                      </button>
                     </div>
                   )}
                 </div>

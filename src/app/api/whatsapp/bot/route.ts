@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { whatsappService } from '@/lib/whatsappService';
 import { DB } from '@/lib/db';
 
-const BAILEYS_URL = 'http://localhost:5001';
+const BAILEYS_URL = 'http://127.0.0.1:5001';
 
 export async function GET() {
   try {
@@ -27,7 +27,7 @@ export async function GET() {
     const attendanceGroup = whatsappService.getAttendanceGroup();
 
     const bot = {
-      isConnected: liveBaileys?.bot?.isConnected ?? fallbackStatus.isConnected,
+      isConnected: liveBaileys?.bot?.isConnected ?? false,
       phoneNumber: liveBaileys?.bot?.phoneNumber || fallbackStatus.phoneNumber,
       botName: 'Learnmore Technologies WhatsApp Gateway',
       lastSyncAt: new Date().toISOString(),
@@ -53,6 +53,16 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { action, phone, message, groupName, groupId, target } = body;
+
+    if (action === 'refresh_qr') {
+      try {
+        const res = await fetch(`${BAILEYS_URL}/reset-auth`);
+        const data = await res.json();
+        return NextResponse.json(data);
+      } catch (e: any) {
+        return NextResponse.json({ success: false, error: e.message });
+      }
+    }
 
     if (action === 'set_attendance_group') {
       if (!groupId || !groupName) {

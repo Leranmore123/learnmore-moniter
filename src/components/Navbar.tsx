@@ -16,7 +16,8 @@ import {
   Radio,
   Shield,
   ChevronDown,
-  GraduationCap
+  GraduationCap,
+  Video
 } from 'lucide-react';
 import WhatsAppBotModal from './WhatsAppBotModal';
 
@@ -59,6 +60,17 @@ export default function Navbar() {
           }`}
         >
           <BookOpen className="h-3.5 w-3.5" /> Batches
+        </Link>
+
+        <Link
+          href="/admin/lectures"
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 ${
+            pathname.startsWith('/admin/lectures')
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Video className="h-3.5 w-3.5" /> Live & Lectures
         </Link>
 
         <Link

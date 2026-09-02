@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Play,
-  Share2
+  Share2,
+  Video
 } from 'lucide-react';
 
 export default function TrainerDashboardPage() {
@@ -185,16 +186,26 @@ export default function TrainerDashboardPage() {
                       </p>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
                       <span className="font-mono text-slate-600">
                         Used: <strong>{used}h</strong> / {total}h
                       </span>
-                      <Link
-                        href={`/trainer/sessions/add?batch=${batch.id}`}
-                        className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs"
-                      >
-                        + Log Hours
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/trainer/live-class/${batch.id}`}
+                          className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 transition-colors"
+                          title="Start Live Video Class"
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Live</span>
+                        </Link>
+                        <Link
+                          href={`/trainer/sessions/add?batch=${batch.id}`}
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
+                        >
+                          + Log
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 );

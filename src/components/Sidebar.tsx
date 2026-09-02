@@ -18,7 +18,8 @@ import {
   Radio,
   Settings,
   LogOut,
-  GraduationCap
+  GraduationCap,
+  Video
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -44,6 +45,7 @@ export default function Sidebar() {
     { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
     { href: '/admin/courses', label: 'Courses & Syllabus', icon: GraduationCap },
     { href: '/admin/batches', label: 'Batches', icon: BookOpen },
+    { href: '/admin/lectures', label: 'Live & Lectures', icon: Video },
     { href: '/admin/trainers', label: 'Trainers', icon: Users },
     { href: '/admin/attendance', label: 'Attendance', icon: Camera },
     { href: '/admin/monitoring', label: 'Login Monitor', icon: Clock },

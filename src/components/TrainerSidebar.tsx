@@ -14,7 +14,8 @@ import {
   CalendarDays,
   LogOut,
   Menu,
-  X
+  X,
+  Video
 } from 'lucide-react';
 
 export default function TrainerSidebar() {
@@ -22,9 +23,27 @@ export default function TrainerSidebar() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [activeMeeting, setActiveMeeting] = useState<{ batchId: string; batchName: string; url: string } | null>(null);
 
   useEffect(() => {
     setCurrentUser(getStoredUser());
+
+    const checkActiveMeeting = () => {
+      try {
+        const raw = localStorage.getItem('active_live_meeting');
+        if (raw) {
+          setActiveMeeting(JSON.parse(raw));
+        } else {
+          setActiveMeeting(null);
+        }
+      } catch {
+        setActiveMeeting(null);
+      }
+    };
+
+    checkActiveMeeting();
+    const interval = setInterval(checkActiveMeeting, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = async () => {
@@ -97,6 +116,29 @@ export default function TrainerSidebar() {
                 </button>
               </div>
 
+              {/* Active Meeting Quick Return Alert */}
+              {activeMeeting && (
+                <div className="mb-3 p-3 rounded-2xl bg-rose-50 border border-rose-200 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-rose-600 animate-ping" />
+                    <span className="text-[11px] font-black uppercase text-rose-900 tracking-wider">
+                      Meeting in Progress
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-bold text-slate-800 line-clamp-1">
+                    {activeMeeting.batchName}
+                  </p>
+                  <Link
+                    href={activeMeeting.url}
+                    onClick={() => setIsMobileOpen(false)}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs shadow-xs"
+                  >
+                    <Video className="w-3.5 h-3.5" />
+                    <span>Return to Class</span>
+                  </Link>
+                </div>
+              )}
+
               <nav className="space-y-1">
                 {links.map((item) => {
                   const Icon = item.icon;
@@ -155,6 +197,28 @@ export default function TrainerSidebar() {
               <span className="text-blue-600 font-bold text-xs">Trainer Portal</span>
             </div>
           </div>
+
+          {/* Active Meeting Quick Return Alert for Desktop */}
+          {activeMeeting && (
+            <div className="mb-3 mx-1 p-3 rounded-2xl bg-rose-50 border border-rose-200 space-y-2 shrink-0 animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-rose-600 animate-ping" />
+                <span className="text-[10px] font-black uppercase text-rose-900 tracking-wider">
+                  Live Meeting Active
+                </span>
+              </div>
+              <p className="text-[11px] font-bold text-slate-800 line-clamp-1">
+                {activeMeeting.batchName}
+              </p>
+              <Link
+                href={activeMeeting.url}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shadow-xs transition-colors"
+              >
+                <Video className="w-3.5 h-3.5" />
+                <span>Return to Class</span>
+              </Link>
+            </div>
+          )}
 
           {/* Sidebar Nav Links */}
           <nav className="space-y-1 overflow-y-auto flex-1 pr-1 custom-scrollbar">
