@@ -54,17 +54,38 @@ async function findGroupJidByName(groupName: string): Promise<string | null> {
       if (res.ok) {
         const data = await res.json();
         if (data.groups && Array.isArray(data.groups)) {
-          const match = data.groups.find((g: any) => {
+          // Stage 1: Exact name match
+          let match = data.groups.find((g: any) => {
             const gName = (g.name || g.subject || '').toLowerCase().trim();
-            const cleanGName = gName.replace(/[^a-z0-9]/g, '');
-            if (!cleanGName || !cleanTarget) return false;
-            return (
-              gName === targetLower ||
-              cleanGName === cleanTarget ||
-              cleanGName.includes(cleanTarget) ||
-              cleanTarget.includes(cleanGName)
-            );
+            return gName === targetLower;
           });
+
+          // Stage 2: Clean alphanumeric match (ignores spaces, hyphens, punctuation)
+          if (!match && cleanTarget) {
+            match = data.groups.find((g: any) => {
+              const gName = (g.name || g.subject || '').toLowerCase().trim();
+              const cleanGName = gName.replace(/[^a-z0-9]/g, '');
+              if (!cleanGName) return false;
+              return (
+                cleanGName === cleanTarget ||
+                cleanGName.includes(cleanTarget) ||
+                cleanTarget.includes(cleanGName)
+              );
+            });
+          }
+
+          // Stage 3: Keyword / Token overlap match (e.g. "JAVA-10AM" inside "LMT-KN-SEP-OFF-JAVA-10AM")
+          if (!match) {
+            const tokens = targetLower.split(/[-_\s]+/).filter((t) => t.length >= 3);
+            if (tokens.length >= 2) {
+              match = data.groups.find((g: any) => {
+                const gName = (g.name || g.subject || '').toLowerCase();
+                const matchCount = tokens.filter((t) => gName.includes(t)).length;
+                return matchCount >= Math.min(2, tokens.length);
+              });
+            }
+          }
+
           if (match && match.id) return match.id;
         }
       }
@@ -296,21 +317,25 @@ class WhatsAppService {
     ].join('\n');
 
     let delivered = false;
-    // 1. ALWAYS search live WhatsApp groups by batch name first to target the verified real group JID
-    let targetGroupJid = await findGroupJidByName(batch.whatsapp_group_name || batch.name);
 
-    // 2. Only if live search didn't return a match, fallback to stored whatsapp_group_id
-    if (!targetGroupJid && batch.whatsapp_group_id && batch.whatsapp_group_id.includes('@g.us')) {
-      targetGroupJid = batch.whatsapp_group_id;
+    // 1. First, try sending directly to stored whatsapp_group_id if it's a real @g.us group ID
+    if (batch.whatsapp_group_id && batch.whatsapp_group_id.includes('@g.us') && !batch.whatsapp_group_id.startsWith('120363_sim')) {
+      try {
+        delivered = await callBaileysSend(batch.whatsapp_group_id, attendanceGroupMessage, false);
+      } catch {}
     }
 
-    if (targetGroupJid) {
-      try {
-        delivered = await callBaileysSend(targetGroupJid, attendanceGroupMessage, false);
-        if (delivered) {
-          DB.updateBatch(batch.id, { whatsapp_group_id: targetGroupJid });
-        }
-      } catch {}
+    // 2. If direct send failed or ID was missing/simulated, search live Baileys groups by 3-stage matching
+    if (!delivered) {
+      const liveGroupJid = await findGroupJidByName(batch.whatsapp_group_name || batch.name);
+      if (liveGroupJid) {
+        try {
+          delivered = await callBaileysSend(liveGroupJid, attendanceGroupMessage, false);
+          if (delivered) {
+            DB.updateBatch(batch.id, { whatsapp_group_id: liveGroupJid });
+          }
+        } catch {}
+      }
     }
 
     this.botState.totalMessagesDelivered += 1;
