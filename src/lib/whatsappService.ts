@@ -309,16 +309,16 @@ class WhatsAppService {
       batch_id: batch.id,
       batch_name: batch.name,
       trainer_name: trainer?.name || session.trainer_name || 'Trainer',
-      group_name: this.attendanceGroup.name || batch.whatsapp_group_name || batch.name,
+      group_name: batch.whatsapp_group_name || batch.name,
       message_preview: attendanceGroupMessage,
-      status: 'delivered',
+      status: delivered ? 'delivered' : 'failed',
       sent_at: new Date().toISOString(),
     });
 
     return {
       success: true,
       messageText: attendanceGroupMessage,
-      deliveredTo: this.attendanceGroup.name || batch.whatsapp_group_name || 'WhatsApp Group',
+      deliveredTo: delivered ? (batch.whatsapp_group_name || batch.name) : 'Pending Delivery',
     };
   }
 
