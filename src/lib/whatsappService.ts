@@ -305,13 +305,14 @@ class WhatsAppService {
 
     const trainerTitle = trainer.designation ? `${trainer.name} (${trainer.designation})` : trainer.name;
 
-    // Exact concise 4-line template
+    // Concise template with live GPS location
     const checkInMessage = [
       `👨‍🏫 Trainer Name: ${trainerTitle}`,
       `📱 WhatsApp: ${trainer.phone || '+91 8340729468'}`,
       `⏰ Login Time: ${formattedTime}`,
       `📅 Date: ${formattedDate}`,
-    ].join('\n');
+      params.locationName ? `📍 Location: ${params.locationName}` : null,
+    ].filter(Boolean).join('\n');
 
     // Send to the official attendance group
     if (this.attendanceGroup.id) {
@@ -346,6 +347,7 @@ class WhatsAppService {
     checkInTime: string;
     checkOutTime: string;
     totalMinutesWorked: number;
+    locationName?: string;
     latitude?: string | number | null;
     longitude?: string | number | null;
   }): Promise<{ success: boolean; messageText: string; isCompleted9h: boolean }> {
@@ -382,14 +384,15 @@ class WhatsAppService {
 
     const trainerTitle = trainer.designation ? `${trainer.name} (${trainer.designation})` : trainer.name;
 
-    // Concise clean check-out format
+    // Concise clean check-out format with live location
     const checkOutMessage = [
       `👨‍🏫 Trainer Name: ${trainerTitle}`,
       `📱 WhatsApp: ${trainer.phone || '+91 8340729468'}`,
       `⏰ Login Time: ${inTimeFormatted}`,
       `🚪 Logout Time: ${outTimeFormatted}`,
       `📅 Date: ${formattedDate}`,
-    ].join('\n');
+      params.locationName ? `📍 Location: ${params.locationName}` : null,
+    ].filter(Boolean).join('\n');
 
     // Send to the official attendance group
     if (this.attendanceGroup.id) {

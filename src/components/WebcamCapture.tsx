@@ -38,7 +38,7 @@ export default function WebcamCapture({ onCapture, onCancel, title }: WebcamCapt
       }
     };
 
-    // High-Accuracy Real Geolocation with Reverse Geocoding
+    // High-Accuracy Real Geolocation with Dynamic Reverse Geocoding
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
@@ -56,20 +56,19 @@ export default function WebcamCapture({ onCapture, onCancel, title }: WebcamCapt
               const geoData = await geoRes.json();
               if (geoData && geoData.address) {
                 const a = geoData.address;
-                const road = a.road || a.suburb || a.neighbourhood || '';
-                const city = a.city || a.town || a.village || a.county || '';
+                const road = a.road || a.suburb || a.neighbourhood || a.commercial || '';
+                const city = a.city || a.town || a.village || a.county || a.state_district || '';
                 const state = a.state || '';
                 const parts = [road, city, state].filter(Boolean);
                 if (parts.length > 0) {
                   realAddress = parts.join(', ');
                 } else if (geoData.display_name) {
-                  realAddress = geoData.display_name.split(',').slice(0, 3).join(',');
+                  realAddress = geoData.display_name.split(',').slice(0, 3).join(', ');
                 }
               }
             }
           } catch {
-            // Fallback to coordinates
-            realAddress = `Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`;
+            realAddress = `GPS: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
           }
 
           setLocation({
@@ -79,33 +78,31 @@ export default function WebcamCapture({ onCapture, onCancel, title }: WebcamCapt
           });
           setLocLoading(false);
         },
-        async () => {
-          // IP fallback if GPS denied
+        async (err) => {
+          // IP fallback if GPS permission is denied or unavailable
           try {
             const ipRes = await fetch('https://ipapi.co/json/');
             const ipData = await ipRes.json();
-            setLocation({
-              lat: String(ipData.latitude || '23.0225'),
-              lon: String(ipData.longitude || '72.5714'),
-              address: `${ipData.city || 'Ahmedabad'}, ${ipData.region || 'Gujarat'} (Approx IP Location)`,
-            });
+            if (ipData && ipData.latitude && ipData.longitude) {
+              const city = ipData.city || '';
+              const region = ipData.region || ipData.country_name || '';
+              setLocation({
+                lat: String(ipData.latitude),
+                lon: String(ipData.longitude),
+                address: city && region ? `${city}, ${region}` : `Lat: ${ipData.latitude}, Lon: ${ipData.longitude}`,
+              });
+            } else {
+              setLocation(null);
+            }
           } catch {
-            setLocation({
-              lat: '23.0225',
-              lon: '72.5714',
-              address: 'Ahmedabad, Gujarat, India',
-            });
+            setLocation(null);
           }
           setLocLoading(false);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     } else {
-      setLocation({
-        lat: '23.0225',
-        lon: '72.5714',
-        address: 'Ahmedabad, Gujarat, India',
-      });
+      setLocation(null);
       setLocLoading(false);
     }
 
