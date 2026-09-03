@@ -266,8 +266,8 @@ class WhatsAppService {
     };
   }
   private attendanceGroup = {
-    id: '120363418013926493@g.us',
-    name: 'trainer@learnmore',
+    id: '120363231853245188@g.us',
+    name: 'LEARNMORE-Login-Logout',
   };
 
   public getAttendanceGroup() {

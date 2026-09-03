@@ -493,22 +493,47 @@ export default function WhatsAppDashboardPage() {
               <button
                 onClick={async () => {
                   try {
-                    const res = await fetch('/api/attendance', {
+                    const targetId = selectedAttendanceGroupId || botStatus?.attendanceGroup?.id || '120363231853245188@g.us';
+                    const targetName = selectedAttendanceGroupName || botStatus?.attendanceGroup?.name || 'LEARNMORE-Login-Logout';
+
+                    const formattedTime = new Date().toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    });
+                    const formattedDate = new Date().toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    });
+
+                    const testCheckInText = [
+                      `👨‍🏫 Trainer Name: Rahul Sharma (Senior Full-Stack Trainer)`,
+                      `📱 WhatsApp: +91 8340729468`,
+                      `⏰ Login Time: ${formattedTime}`,
+                      `📅 Date: ${formattedDate}`,
+                    ].join('\n');
+
+                    // Directly send test broadcast to the selected attendance group
+                    const res = await fetch('/api/whatsapp/bot', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        trainer_id: 'usr_trainer_1',
-                        type: 'in',
-                        location_name: 'Learnmore Technologies Campus Lab 1',
+                        action: 'send_test',
+                        target: targetId,
+                        message: testCheckInText,
                       }),
                     });
+
                     const d = await res.json();
                     if (d.success) {
-                      setNotice('✅ Live Test Check-In Broadcast Sent to LEARNMORE-Login-Logout Group!');
+                      setNotice(`✅ Live Test Check-In Broadcast Sent to "${targetName}"!`);
                       fetchAllData();
+                    } else {
+                      setNotice(`❌ Error: ${d.error || 'Failed to send check-in message'}`);
                     }
-                  } catch {
-                    // silent
+                  } catch (e: any) {
+                    setNotice(`❌ Error: ${e.message}`);
                   }
                 }}
                 className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-emerald-50 text-emerald-950 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
