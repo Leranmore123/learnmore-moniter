@@ -1,6 +1,42 @@
 import { Batch, WorkSession, User, WhatsAppBroadcastLog } from './types';
 import { DB } from './db';
 
+const BAILEYS_URLS = [
+  process.env.BAILEYS_URL || 'http://127.0.0.1:5002',
+  'http://127.0.0.1:5001',
+  'http://localhost:5002',
+  'http://localhost:5001',
+];
+
+async function callBaileysSend(target: string, text: string, withLogo = false): Promise<boolean> {
+  if (!target) return false;
+  for (const baseUrl of BAILEYS_URLS) {
+    try {
+      const res = await fetch(`${baseUrl}/send-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, text, withLogo }),
+      });
+      if (res.ok) return true;
+    } catch {}
+  }
+  return false;
+}
+
+async function callBaileysCreateGroup(name: string, participants: string[]): Promise<any> {
+  for (const baseUrl of BAILEYS_URLS) {
+    try {
+      const res = await fetch(`${baseUrl}/create-group`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, participants }),
+      });
+      if (res.ok) return await res.json();
+    } catch {}
+  }
+  return null;
+}
+
 export interface WhatsAppBotState {
   isConnected: boolean;
   phoneNumber: string;
@@ -82,17 +118,10 @@ class WhatsAppService {
 
     // Try real Baileys WhatsApp Gateway
     try {
-      const res = await fetch('http://localhost:5001/create-group', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: groupName, participants: participantsList }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.groupId) {
-          groupId = data.groupId;
-          if (data.inviteLink) inviteLink = data.inviteLink;
-        }
+      const data = await callBaileysCreateGroup(groupName, participantsList);
+      if (data && data.success && data.groupId) {
+        groupId = data.groupId;
+        if (data.inviteLink) inviteLink = data.inviteLink;
       }
     } catch {
       // fallback simulation
@@ -146,15 +175,7 @@ class WhatsAppService {
     if (batch.whatsapp_group_id) {
       try {
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        await fetch('http://localhost:5001/send-message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            target: batch.whatsapp_group_id,
-            text: welcomeMessage,
-            withLogo: false,
-          }),
-        });
+        await callBaileysSend(batch.whatsapp_group_id, welcomeMessage, false);
       } catch {
         // silent
       }
@@ -218,15 +239,7 @@ class WhatsAppService {
     // Try real Baileys WhatsApp Gateway
     if (batch.whatsapp_group_id) {
       try {
-        await fetch('http://localhost:5001/send-message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            target: batch.whatsapp_group_id,
-            text: formattedMessage,
-            withLogo: false,
-          }),
-        });
+        await callBaileysSend(batch.whatsapp_group_id, formattedMessage, false);
       } catch {
         // silent
       }
@@ -253,8 +266,8 @@ class WhatsAppService {
     };
   }
   private attendanceGroup = {
-    id: '120363231853245188@g.us',
-    name: 'LEARNMORE-Login-Logout',
+    id: '120363418013926493@g.us',
+    name: 'trainer@learnmore',
   };
 
   public getAttendanceGroup() {
@@ -267,7 +280,7 @@ class WhatsAppService {
   }
 
   /**
-   * Automatically sends Check-In / Login notification to the LEARNMORE-Login-Logout WhatsApp group
+   * Automatically sends Check-In / Login notification to the attendance WhatsApp group
    */
   public async sendAttendanceCheckIn(params: {
     trainer: User;
@@ -303,15 +316,7 @@ class WhatsAppService {
     // Send to the official attendance group
     if (this.attendanceGroup.id) {
       try {
-        await fetch('http://localhost:5001/send-message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            target: this.attendanceGroup.id,
-            text: checkInMessage,
-            withLogo: false,
-          }),
-        });
+        await callBaileysSend(this.attendanceGroup.id, checkInMessage, false);
       } catch {
         // silent
       }
@@ -334,7 +339,7 @@ class WhatsAppService {
   }
 
   /**
-   * Automatically sends Check-Out / Logout notification with 9-Hour calculation to the LEARNMORE-Login-Logout WhatsApp group
+   * Automatically sends Check-Out / Logout notification with 9-Hour calculation to the attendance WhatsApp group
    */
   public async sendAttendanceCheckOut(params: {
     trainer: User;
@@ -389,15 +394,7 @@ class WhatsAppService {
     // Send to the official attendance group
     if (this.attendanceGroup.id) {
       try {
-        await fetch('http://localhost:5001/send-message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            target: this.attendanceGroup.id,
-            text: checkOutMessage,
-            withLogo: false,
-          }),
-        });
+        await callBaileysSend(this.attendanceGroup.id, checkOutMessage, false);
       } catch {
         // silent
       }
@@ -441,15 +438,7 @@ class WhatsAppService {
 
     if (this.attendanceGroup.id) {
       try {
-        await fetch('http://localhost:5001/send-message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            target: this.attendanceGroup.id,
-            text: formattedMessage,
-            withLogo: false,
-          }),
-        });
+        await callBaileysSend(this.attendanceGroup.id, formattedMessage, false);
       } catch {
         // silent
       }
@@ -508,15 +497,7 @@ class WhatsAppService {
     for (const batch of trainerBatches) {
       if (!batch.whatsapp_group_id) continue;
       try {
-        await fetch('http://localhost:5001/send-message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            target: batch.whatsapp_group_id,
-            text: studentNotice,
-            withLogo: false,
-          }),
-        });
+        await callBaileysSend(batch.whatsapp_group_id, studentNotice, false);
         count++;
 
         this.botState.totalMessagesDelivered += 1;
