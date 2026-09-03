@@ -935,16 +935,12 @@ export default function AICopilotModal() {
                           }}
                           className="w-full p-2 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-900 focus:border-blue-600 focus:outline-none"
                         >
-                          <option value="120363231853245188@g.us">
-                            ⭐ LEARNMORE-Login-Logout (Default Attendance Group)
-                          </option>
-                          {availableGroups
-                            .filter((g) => g.id !== '120363231853245188@g.us')
-                            .map((g) => (
-                              <option key={g.id} value={g.id}>
-                                👥 {g.name} ({g.size || 0} members)
-                              </option>
-                            ))}
+                          <option value="">-- Select Target WhatsApp Group --</option>
+                          {availableGroups.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              👥 {g.name} ({g.size || 0} members)
+                            </option>
+                          ))}
                         </select>
                       </div>
 

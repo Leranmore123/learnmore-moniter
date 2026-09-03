@@ -48,6 +48,7 @@ interface DatabaseSchema {
   leaveAuditLogs?: LeaveAuditLog[];
   holidayConfig?: HolidayConfig;
   courses?: CourseSyllabus[];
+  attendanceGroup?: { id: string; name: string };
 }
 
 function getInitialData(): DatabaseSchema {
@@ -1151,6 +1152,19 @@ export class DB {
     }
     this.saveDB(data);
     return log;
+  }
+
+  // --- Attendance WhatsApp Group Config ---
+  static getAttendanceGroup(): { id: string; name: string } | null {
+    const data = this.ensureDB();
+    return data.attendanceGroup || null;
+  }
+
+  static setAttendanceGroup(group: { id: string; name: string }): { id: string; name: string } {
+    const data = this.ensureDB();
+    data.attendanceGroup = group;
+    this.saveDB(data);
+    return group;
   }
 
   // --- Holiday & Week-Off Configuration ---
