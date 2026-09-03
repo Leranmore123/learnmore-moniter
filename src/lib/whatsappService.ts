@@ -37,27 +37,6 @@ async function callBaileysCreateGroup(name: string, participants: string[]): Pro
   return null;
 }
 
-async function findGroupJidByName(groupName: string): Promise<string | null> {
-  if (!groupName) return null;
-  for (const baseUrl of BAILEYS_URLS) {
-    try {
-      const res = await fetch(`${baseUrl}/groups`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.groups && Array.isArray(data.groups)) {
-          const targetLower = groupName.toLowerCase().trim();
-          const match = data.groups.find((g: any) => {
-            const gLower = (g.name || '').toLowerCase().trim();
-            return gLower === targetLower || gLower.includes(targetLower) || targetLower.includes(gLower);
-          });
-          if (match && match.id) return match.id;
-        }
-      }
-    } catch {}
-  }
-  return null;
-}
-
 export interface WhatsAppBotState {
   isConnected: boolean;
   phoneNumber: string;
@@ -239,6 +218,7 @@ class WhatsAppService {
       attendanceSummary = `${presentCount}/${total}`;
     }
 
+    // Send the COMPLETE full list of selected topics & description without cutting off
     let topicsSummary = '';
     if (session.description && session.description.trim()) {
       topicsSummary = session.description.trim();
@@ -248,29 +228,41 @@ class WhatsAppService {
       topicsSummary = 'Session completed';
     }
 
-    // Rich Detailed Work Status Message for Batch Group
-    const formattedMessage = [
+    // Standardized Message for Student Batch Group
+    const studentGroupMessage = [
+      `📚 Batch: ${batch.name}`,
+      `👨‍🏫 Trainer: ${trainer?.name?.split(' ')[0] || batch.trainer_name || 'Trainer'}`,
+      `📌 Topic: ${topicsSummary}`,
+      `✅ Attendance: ${attendanceSummary}`,
+    ].join('\n');
+
+    // Rich Detailed Message for Official Attendance Group
+    const attendanceGroupMessage = [
       `📖 *Work Status / Class Session Logged*`,
       `👨‍🏫 Trainer: ${trainer?.name || session.trainer_name || 'Trainer'}`,
       `🏷️ Batch: ${batch.name}`,
       `⏱️ Duration: ${session.hours_taken} Hours`,
       `📌 Topic / Work Status:`,
       `${topicsSummary}`,
-      `👥 Student Attendance: ${attendanceSummary}`,
+      `👥 Attendance: ${attendanceSummary}`,
     ].join('\n');
 
-    // 1. Resolve Target Batch Group JID (Check batch.whatsapp_group_id or resolve group name from Baileys)
-    let targetJid = batch.whatsapp_group_id;
-    if (!targetJid || !targetJid.includes('@g.us')) {
-      const matchedJid = await findGroupJidByName(batch.whatsapp_group_name || batch.name);
-      if (matchedJid) targetJid = matchedJid;
+    // Try real Baileys WhatsApp Gateway for Batch Group
+    if (batch.whatsapp_group_id) {
+      try {
+        await callBaileysSend(batch.whatsapp_group_id, studentGroupMessage, false);
+      } catch {
+        // silent
+      }
     }
 
-    // 2. Send Work Status ONLY to the specific Batch WhatsApp Group!
-    if (targetJid && targetJid.includes('@g.us')) {
+    // Always broadcast session work update to the official Attendance / Main WhatsApp Group
+    if (this.attendanceGroup.id) {
       try {
-        await callBaileysSend(targetJid, formattedMessage, false);
-      } catch {}
+        await callBaileysSend(this.attendanceGroup.id, attendanceGroupMessage, false);
+      } catch {
+        // silent
+      }
     }
 
     this.botState.totalMessagesDelivered += 1;
@@ -281,17 +273,127 @@ class WhatsAppService {
       batch_id: batch.id,
       batch_name: batch.name,
       trainer_name: trainer?.name || session.trainer_name || 'Trainer',
-      group_name: batch.whatsapp_group_name || batch.name,
-      message_preview: formattedMessage,
+      group_name: this.attendanceGroup.name || batch.whatsapp_group_name || batch.name,
+      message_preview: attendanceGroupMessage,
       status: 'delivered',
       sent_at: new Date().toISOString(),
     });
 
     return {
       success: true,
-      messageText: formattedMessage,
-      deliveredTo: batch.whatsapp_group_name || batch.name || 'Batch WhatsApp Group',
+      messageText: attendanceGroupMessage,
+      deliveredTo: this.attendanceGroup.name || batch.whatsapp_group_name || 'WhatsApp Group',
     };
+  }
+
+  /**
+   * Broadcasts Trainer Task Start & Completion to the official Attendance WhatsApp group
+   */
+  public async sendTaskUpdate(params: {
+    trainerName: string;
+    title: string;
+    action: 'started' | 'completed';
+    category?: string;
+    durationMinutes?: number;
+    notes?: string;
+  }): Promise<void> {
+    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const formattedTaskMsg = [
+      `📋 *Work Task ${params.action === 'started' ? 'Started 🚀' : 'Completed ✅'}*`,
+      `👨‍🏫 Trainer: ${params.trainerName}`,
+      `📌 Task: ${params.title}`,
+      params.durationMinutes ? `⏱️ Duration: ${params.durationMinutes} mins` : null,
+      params.notes ? `📝 Notes: ${params.notes}` : null,
+      `⏰ Time: ${timeStr}`,
+    ].filter(Boolean).join('\n');
+
+    if (this.attendanceGroup.id) {
+      try {
+        await callBaileysSend(this.attendanceGroup.id, formattedTaskMsg, false);
+      } catch {}
+    }
+
+    DB.addWhatsAppLog({
+      id: `walg_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+      batch_id: 'task',
+      batch_name: 'Work Task Update',
+      trainer_name: params.trainerName,
+      group_name: this.attendanceGroup.name,
+      message_preview: formattedTaskMsg,
+      status: 'delivered',
+      sent_at: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Broadcasts Trainer Live Status updates to the official Attendance WhatsApp group
+   */
+  public async sendStatusUpdateNotification(params: {
+    trainerName: string;
+    status: string;
+    currentTaskTitle?: string;
+    batchName?: string;
+  }): Promise<void> {
+    const statusLabel =
+      params.status === 'in_class'
+        ? 'In Class 👨‍🏫'
+        : params.status === 'working_task'
+        ? 'Working on Task 💻'
+        : params.status === 'break'
+        ? 'On Break ☕'
+        : 'Idle ⏸️';
+
+    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+    const msg = [
+      `🔄 *Trainer Work Status Updated*`,
+      `👨‍🏫 Trainer: ${params.trainerName}`,
+      `📌 Status: ${statusLabel}`,
+      params.batchName ? `🏷️ Batch: ${params.batchName}` : null,
+      params.currentTaskTitle ? `📝 Activity: ${params.currentTaskTitle}` : null,
+      `⏰ Time: ${timeStr}`,
+    ].filter(Boolean).join('\n');
+
+    if (this.attendanceGroup.id) {
+      try {
+        await callBaileysSend(this.attendanceGroup.id, msg, false);
+      } catch {}
+    }
+
+    DB.addWhatsAppLog({
+      id: `walg_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+      batch_id: 'status_update',
+      batch_name: params.batchName || 'Status Update',
+      trainer_name: params.trainerName,
+      group_name: this.attendanceGroup.name,
+      message_preview: msg,
+      status: 'delivered',
+      sent_at: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Broadcasts Batch Trainer Assignment to the official Attendance WhatsApp group
+   */
+  public async sendBatchAssignment(params: {
+    batch: Batch;
+    trainer: User;
+  }): Promise<void> {
+    const formattedAssignmentMsg = [
+      `📚 *New Batch Assigned to Trainer*`,
+      `👨‍🏫 Trainer: ${params.trainer.name}`,
+      `🏷️ Batch: ${params.batch.name}`,
+      `📖 Course: ${params.batch.course_name || 'Technical Course'}`,
+      `⏱️ Total Hours: ${params.batch.total_hours} Hours`,
+      `👥 Total Students: ${params.batch.total_students || 0}`,
+      `📅 Start Date: ${params.batch.start_date || 'Immediate'}`,
+    ].join('\n');
+
+    if (this.attendanceGroup.id) {
+      try {
+        await callBaileysSend(this.attendanceGroup.id, formattedAssignmentMsg, false);
+      } catch {}
+    }
   }
   private attendanceGroup = {
     id: '120363231853245188@g.us',
@@ -308,7 +410,7 @@ class WhatsAppService {
   }
 
   /**
-   * Automatically sends Check-In / Login notification to the LEARNMORE-Login-Logout WhatsApp group
+   * Automatically sends Check-In / Login notification to the attendance WhatsApp group
    */
   public async sendAttendanceCheckIn(params: {
     trainer: User;
@@ -333,13 +435,14 @@ class WhatsAppService {
 
     const trainerTitle = trainer.designation ? `${trainer.name} (${trainer.designation})` : trainer.name;
 
-    // Exact concise 4-line template
+    // Concise template with live GPS location
     const checkInMessage = [
       `👨‍🏫 Trainer Name: ${trainerTitle}`,
       `📱 WhatsApp: ${trainer.phone || '+91 8340729468'}`,
       `⏰ Login Time: ${formattedTime}`,
       `📅 Date: ${formattedDate}`,
-    ].join('\n');
+      params.locationName ? `📍 Location: ${params.locationName}` : null,
+    ].filter(Boolean).join('\n');
 
     // Send to the official attendance group
     if (this.attendanceGroup.id) {
@@ -367,13 +470,14 @@ class WhatsAppService {
   }
 
   /**
-   * Automatically sends Check-Out / Logout notification with 9-Hour calculation to the LEARNMORE-Login-Logout WhatsApp group
+   * Automatically sends Check-Out / Logout notification with 9-Hour calculation to the attendance WhatsApp group
    */
   public async sendAttendanceCheckOut(params: {
     trainer: User;
     checkInTime: string;
     checkOutTime: string;
     totalMinutesWorked: number;
+    locationName?: string;
     latitude?: string | number | null;
     longitude?: string | number | null;
   }): Promise<{ success: boolean; messageText: string; isCompleted9h: boolean }> {
@@ -410,14 +514,15 @@ class WhatsAppService {
 
     const trainerTitle = trainer.designation ? `${trainer.name} (${trainer.designation})` : trainer.name;
 
-    // Concise clean check-out format
+    // Concise clean check-out format with live location
     const checkOutMessage = [
       `👨‍🏫 Trainer Name: ${trainerTitle}`,
       `📱 WhatsApp: ${trainer.phone || '+91 8340729468'}`,
       `⏰ Login Time: ${inTimeFormatted}`,
       `🚪 Logout Time: ${outTimeFormatted}`,
       `📅 Date: ${formattedDate}`,
-    ].join('\n');
+      params.locationName ? `📍 Location: ${params.locationName}` : null,
+    ].filter(Boolean).join('\n');
 
     // Send to the official attendance group
     if (this.attendanceGroup.id) {
@@ -477,7 +582,7 @@ class WhatsAppService {
     DB.addWhatsAppLog({
       id: `walg_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
       batch_id: 'leave',
-      batch_name: isWeekoff ? 'Faculty Weekoff Notice' : 'Faculty Leave Application',
+      batch_name: params.leaveType === 'weekoff' ? 'Faculty Weekoff Notice' : 'Faculty Leave Application',
       trainer_name: params.trainerName,
       group_name: this.attendanceGroup.name,
       message_preview: formattedMessage.slice(0, 150) + '...',

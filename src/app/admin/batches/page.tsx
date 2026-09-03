@@ -15,7 +15,8 @@ import {
   PlusCircle,
   CheckCircle,
   RotateCcw,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 
 export default function AdminBatchesPage() {
@@ -50,7 +51,22 @@ export default function AdminBatchesPage() {
       const bData = await bRes.json();
       const tData = await tRes.json();
       if (bData.success) setBatches(bData.batches || []);
-      if (tData.success) setTrainers(tData.users || []);
+
+      let list: User[] = [];
+      if (tData.success && tData.users) {
+        list = tData.users;
+      }
+      try {
+        const customUsers = JSON.parse(localStorage.getItem('custom_users') || '[]');
+        const customTrainers = customUsers.filter((u: any) => u.role === 'trainer');
+        customTrainers.forEach((cu: any) => {
+          if (!list.some((existing) => existing.id === cu.id || existing.username === cu.username)) {
+            list.push(cu);
+          }
+        });
+      } catch {}
+
+      setTrainers(list);
     } catch {
       // silent
     }
@@ -93,6 +109,21 @@ export default function AdminBatchesPage() {
       }),
     });
     fetchBatchesAndTrainers();
+  };
+
+  const handleDeleteBatch = async (batchId: string, batchName: string) => {
+    if (!window.confirm(`Are you sure you want to delete batch "${batchName}"?`)) return;
+    try {
+      const res = await fetch(`/api/batches?id=${batchId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        fetchBatchesAndTrainers();
+      } else {
+        alert(data.error || 'Failed to delete batch');
+      }
+    } catch {
+      alert('Error deleting batch');
+    }
   };
 
   const openEditModal = (batch: Batch) => {
@@ -222,18 +253,23 @@ export default function AdminBatchesPage() {
               />
             </div>
 
-            {/* Trainer */}
+            {/* Trainer Dropdown */}
             <div className="space-y-1.5">
               <label className="font-bold text-slate-600 uppercase tracking-wider text-[11px] flex items-center gap-1">
                 👤 TRAINER
               </label>
-              <input
-                type="text"
-                placeholder="Trainer username or name..."
+              <select
                 value={trainerFilter}
                 onChange={(e) => setTrainerFilter(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
-              />
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white cursor-pointer"
+              >
+                <option value="">All Trainers ({trainers.length})</option>
+                {trainers.map((t) => (
+                  <option key={t.id} value={t.name}>
+                    {t.name} (@{t.username})
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Progress Status */}
@@ -421,6 +457,16 @@ export default function AdminBatchesPage() {
                               }`}
                             >
                               {batch.is_active ? '🏁 Complete' : '🔁 Reopen'}
+                            </button>
+
+                            {/* Delete Batch */}
+                            <button
+                              onClick={() => handleDeleteBatch(batch.id, batch.name)}
+                              className="px-2 py-1 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                              title="Delete Batch"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </td>

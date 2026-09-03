@@ -159,15 +159,21 @@ export async function POST(req: Request) {
       }
 
       try {
-        await fetch('http://localhost:5001/send-message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            target: finalGroupId,
-            text: formattedBroadcast,
-            withLogo: false,
-          }),
-        });
+        const urls = [process.env.BAILEYS_URL || 'http://127.0.0.1:5002', 'http://127.0.0.1:5001'];
+        for (const u of urls) {
+          try {
+            const res = await fetch(`${u}/send-message`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                target: finalGroupId,
+                text: formattedBroadcast,
+                withLogo: false,
+              }),
+            });
+            if (res.ok) break;
+          } catch {}
+        }
       } catch {
         // silent
       }

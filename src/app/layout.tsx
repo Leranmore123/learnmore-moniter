@@ -18,14 +18,13 @@ export const metadata: Metadata = {
   description: "Official Faculty Trainer Monitoring & WhatsApp Attendance Engine",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col">
         {children}
         <AICopilotModal />
       </body>

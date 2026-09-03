@@ -33,20 +33,22 @@ import {
   Save
 } from 'lucide-react';
 
+// Default Mock Data for fallback display
 const defaultTrainers = [
   {
     id: 'usr_trainer_1',
     name: 'Rahul Sharma',
-    designation: 'Senior Full Stack Trainer',
+    designation: 'Senior Web Development Trainer',
     username: 'rahul',
     role: 'trainer',
     activity: {
-      status: 'idle',
-      status_started_at: '2025-05-22T14:28:00.000Z',
-      current_task_title: 'Nested Out for the day',
-      total_teaching_today_minutes: 0,
-      total_task_today_minutes: 0,
-      total_idle_today_minutes: 0,
+      status: 'in_class',
+      status_started_at: '2025-05-22T09:30:00.000Z',
+      current_task_title: 'Teaching React Hooks & State Management',
+      current_batch_name: 'Full Stack Web Dev - Batch #102',
+      total_teaching_today_minutes: 180,
+      total_task_today_minutes: 45,
+      total_idle_today_minutes: 15,
     }
   },
   {
@@ -96,8 +98,8 @@ export default function AdminDashboardPage() {
     dayType: string;
     holidayName?: string;
     summary: {
-      totalTrainers: number;
-      loggedIn: number;
+      total: number;
+      present: number;
       late: number;
       notLoggedIn: number;
       onLeave: number;
@@ -115,7 +117,7 @@ export default function AdminDashboardPage() {
 
   // Edit Trainer Row Modal State
   const [editingTrainer, setEditingTrainer] = useState<TrainerMonitoringRow | null>(null);
-  const [editStatus, setEditStatus] = useState<'Present' | 'Late' | 'Not Logged In' | 'On Leave' | 'Half Day' | 'Week Off' | 'Holiday'>('Present');
+  const [editStatus, setEditStatus] = useState<'Present' | 'Late' | 'Not Logged In' | 'On Leave' | 'Half Day' | 'Week Off' | 'Holiday' | 'Absent'>('Present');
   const [editLoginTime, setEditLoginTime] = useState<string>('09:30');
   const [editTopic, setEditTopic] = useState<string>('');
   const [editLocation, setEditLocation] = useState<string>('Main Campus Lab 1');
@@ -426,7 +428,7 @@ export default function AdminDashboardPage() {
                   LOGGED IN
                 </div>
                 <div className="text-2xl font-extrabold text-emerald-600 font-mono">
-                  {monSummary.loggedIn} / {monSummary.totalTrainers}
+                  {(monSummary as any).loggedIn ?? (monSummary as any).present} / {(monSummary as any).totalTrainers ?? (monSummary as any).total}
                 </div>
                 <div className="text-xs text-emerald-600 font-medium">On time check in</div>
               </div>

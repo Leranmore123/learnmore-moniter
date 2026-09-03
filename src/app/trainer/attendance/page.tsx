@@ -88,9 +88,9 @@ export default function TrainerAttendancePage() {
     setShowCameraModal(false);
 
     try {
-      const parsedLat = coords?.lat ? parseFloat(coords.lat) : 23.0225;
-      const parsedLng = coords?.lon ? parseFloat(coords.lon) : 72.5714;
-      const locName = coords?.address || 'Institute Campus Lab 1, Ahmedabad';
+      const parsedLat = coords?.lat ? parseFloat(coords.lat) : undefined;
+      const parsedLng = coords?.lon ? parseFloat(coords.lon) : undefined;
+      const locName = coords?.address || (coords?.lat ? `GPS: ${coords.lat}, ${coords.lon}` : 'Live GPS Location');
 
       const res = await fetch('/api/attendance', {
         method: 'POST',

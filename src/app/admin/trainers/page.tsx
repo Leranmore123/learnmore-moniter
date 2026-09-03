@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { User, Batch } from '@/lib/types';
-import { Users, Plus, Mail, Phone, BookOpen, Shield, CheckCircle, Edit3, MessageSquare, Check, X } from 'lucide-react';
+import { Users, Plus, Mail, Phone, BookOpen, Shield, CheckCircle, Edit3, MessageSquare, Check, X, Trash2 } from 'lucide-react';
 
 export default function AdminTrainersPage() {
   const [trainers, setTrainers] = useState<User[]>([]);
@@ -14,13 +14,43 @@ export default function AdminTrainersPage() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const handleDeleteTrainer = async (trainerId: string, trainerName: string) => {
+    if (!window.confirm(`Are you sure you want to delete trainer "${trainerName}"?`)) return;
+    try {
+      await fetch(`/api/users?id=${trainerId}`, { method: 'DELETE' });
+      try {
+        const customUsers = JSON.parse(localStorage.getItem('custom_users') || '[]');
+        const updated = customUsers.filter((u: any) => u.id !== trainerId);
+        localStorage.setItem('custom_users', JSON.stringify(updated));
+      } catch {}
+      setNotice(`🗑️ Trainer "${trainerName}" deleted successfully.`);
+      fetchData();
+      setTimeout(() => setNotice(null), 3000);
+    } catch {
+      alert('Failed to delete trainer.');
+    }
+  };
+
   const fetchData = () => {
     Promise.all([
-      fetch('/api/users?role=trainer').then((r) => r.json()),
-      fetch('/api/batches').then((r) => r.json()),
+      fetch('/api/users?role=trainer').then((r) => r.json()).catch(() => ({ success: false })),
+      fetch('/api/batches').then((r) => r.json()).catch(() => ({ success: false })),
     ]).then(([uData, bData]) => {
-      if (uData.success) setTrainers(uData.users || []);
-      if (bData.success) setBatches(bData.batches || []);
+      let list: User[] = [];
+      if (uData && uData.success && uData.users) {
+        list = uData.users;
+      }
+      try {
+        const customUsers = JSON.parse(localStorage.getItem('custom_users') || '[]');
+        const customTrainers = customUsers.filter((u: any) => u.role === 'trainer');
+        customTrainers.forEach((cu: any) => {
+          if (!list.some((existing) => existing.id === cu.id || existing.username === cu.username)) {
+            list.push(cu);
+          }
+        });
+      } catch {}
+      setTrainers(list);
+      if (bData && bData.success && bData.batches) setBatches(bData.batches);
     });
   };
 
@@ -191,6 +221,14 @@ export default function AdminTrainersPage() {
                   >
                     📡 Radar
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTrainer(trainer.id, trainer.name)}
+                    className="py-2.5 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 font-bold text-xs transition-colors cursor-pointer"
+                    title="Delete Trainer"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             );

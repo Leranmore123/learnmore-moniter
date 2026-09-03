@@ -66,12 +66,16 @@ function AddWorkSessionContent() {
 
     const fetchBatches = async () => {
       try {
-        const res = await fetch('/api/batches');
+        const res = await fetch(`/api/batches?trainer_id=${u?.id || ''}`);
         const data = await res.json();
         if (data.success) {
-          setBatches(data.batches || []);
-          if (!selectedBatchId && data.batches.length > 0) {
-            setSelectedBatchId(preSelectedBatchId || data.batches[0].id);
+          // Strictly show only assigned batches for this trainer
+          const myBatches = (data.batches || []).filter(
+            (b: Batch) => b.trainer_id === u?.id || b.trainer_name?.toLowerCase() === u?.name?.toLowerCase()
+          );
+          setBatches(myBatches);
+          if (!selectedBatchId && myBatches.length > 0) {
+            setSelectedBatchId(preSelectedBatchId || myBatches[0].id);
           }
         }
       } catch {
@@ -493,29 +497,37 @@ function AddWorkSessionContent() {
               <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                 <BookOpen className="h-3.5 w-3.5 text-indigo-600" /> SELECT BATCH
               </label>
-              <select
-                value={selectedBatchId}
-                onChange={(e) => setSelectedBatchId(e.target.value)}
-                required
-                className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 font-bold focus:border-indigo-600 focus:outline-none transition-all cursor-pointer"
-              >
-                {batches.map((batch) => (
-                  <option key={batch.id} value={batch.id}>
-                    {batch.name} ({batch.used_hours || 0}/{batch.total_hours} hrs)
-                  </option>
-                ))}
-              </select>
+              {batches.length === 0 ? (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+                  ⚠️ No batches have been assigned to your profile yet. Please ask the Institute Admin to assign a batch to you before logging hours.
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={selectedBatchId}
+                    onChange={(e) => setSelectedBatchId(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 font-bold focus:border-indigo-600 focus:outline-none transition-all cursor-pointer"
+                  >
+                    {batches.map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.name} ({batch.used_hours || 0}/{batch.total_hours} hrs)
+                      </option>
+                    ))}
+                  </select>
 
-              {/* Connected WhatsApp Group Badge */}
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 flex items-center justify-between">
-                <span className="font-semibold flex items-center gap-1.5">
-                  <MessageSquare className="h-3.5 w-3.5 text-[#25D366]" />
-                  Linked Group: <strong>{currentBatchObj?.whatsapp_group_name || `${currentBatchObj?.name || 'Batch'} WhatsApp Group`}</strong>
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 font-extrabold text-[10px]">
-                  🟢 Auto-Broadcast Ready
-                </span>
-              </div>
+                  {/* Connected WhatsApp Group Badge */}
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 flex items-center justify-between">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <MessageSquare className="h-3.5 w-3.5 text-[#25D366]" />
+                      Linked Group: <strong>{currentBatchObj?.whatsapp_group_name || `${currentBatchObj?.name || 'Batch'} WhatsApp Group`}</strong>
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 font-extrabold text-[10px]">
+                      🟢 Auto-Broadcast Ready
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* 📚 1-CLICK DYNAMIC SYLLABUS TOPIC PICKER */}

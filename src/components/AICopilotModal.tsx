@@ -44,14 +44,9 @@ interface ChatMessage {
 type Language = 'en' | 'hi' | 'gu';
 
 export default function AICopilotModal() {
-  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
@@ -609,28 +604,20 @@ export default function AICopilotModal() {
     setMessages([]);
   };
 
-  if (!mounted) return null;
-
   return (
     <>
-      {/* Floating Launcher Button in Bottom-Right Corner */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5">
+      {/* Floating Launcher Button in Bottom-Right Corner - Compact Round Circle */}
+      <div className="fixed bottom-5 right-5 z-50">
         {!isOpen && (
           <button
             onClick={() => setIsOpen(true)}
-            className="flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 text-white font-extrabold text-xs shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 ring-4 ring-blue-500/20 group cursor-pointer"
+            className="relative flex items-center justify-center h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300 ring-4 ring-blue-500/25 group cursor-pointer"
+            title="Learnmore AI Copilot"
+            aria-label="Open AI Copilot"
           >
-            <div className="relative flex items-center justify-center">
-              <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-emerald-400 opacity-75"></span>
-              <Sparkles className="h-4 w-4 text-emerald-300" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span>Learnmore AI Copilot</span>
-              <Mic className="h-3.5 w-3.5 text-cyan-200" />
-            </div>
-            <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-mono uppercase tracking-wider">
-              {isAdmin ? 'Admin' : 'Faculty'}
-            </span>
+            <span className="animate-ping absolute -top-0.5 -right-0.5 inline-flex h-3.5 w-3.5 rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="absolute -top-0.5 -right-0.5 inline-flex h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white"></span>
+            <Sparkles className="h-6 w-6 text-yellow-300 group-hover:rotate-12 transition-transform" />
           </button>
         )}
       </div>
@@ -948,16 +935,12 @@ export default function AICopilotModal() {
                           }}
                           className="w-full p-2 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-900 focus:border-blue-600 focus:outline-none"
                         >
-                          <option value="120363231853245188@g.us">
-                            ⭐ LEARNMORE-Login-Logout (Default Attendance Group)
-                          </option>
-                          {availableGroups
-                            .filter((g) => g.id !== '120363231853245188@g.us')
-                            .map((g) => (
-                              <option key={g.id} value={g.id}>
-                                👥 {g.name} ({g.size || 0} members)
-                              </option>
-                            ))}
+                          <option value="">-- Select Target WhatsApp Group --</option>
+                          {availableGroups.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              👥 {g.name} ({g.size || 0} members)
+                            </option>
+                          ))}
                         </select>
                       </div>
 

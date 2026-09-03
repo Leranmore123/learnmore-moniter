@@ -55,7 +55,7 @@ export async function POST(req: Request) {
         await whatsappService.sendAttendanceCheckIn({
           trainer,
           checkInTime: record.mark_in_time,
-          locationName: record.location_name,
+          locationName: record.location_name || undefined,
         });
       }
 
@@ -87,6 +87,7 @@ export async function POST(req: Request) {
           checkInTime: record.mark_in_time,
           checkOutTime: record.mark_out_time,
           totalMinutesWorked: totalMinutes,
+          locationName: record.location_name || location_name || undefined,
           latitude: record.latitude || latitude,
           longitude: record.longitude || longitude,
         });

@@ -17,12 +17,13 @@ import {
   MessageSquare,
   Radio,
   Settings,
-  LogOut
+  LogOut,
+  GraduationCap,
+  Video
 } from 'lucide-react';
 
 export default function Sidebar() {
-  const rawPathname = usePathname();
-  const pathname = rawPathname || '';
+  const pathname = usePathname();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
@@ -30,14 +31,21 @@ export default function Sidebar() {
     setCurrentUser(getStoredUser());
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearStoredUser();
-    router.push('/login');
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // silent
+    }
+    window.location.href = '/login';
   };
 
   const links = [
     { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
+    { href: '/admin/courses', label: 'Courses & Syllabus', icon: GraduationCap },
     { href: '/admin/batches', label: 'Batches', icon: BookOpen },
+    { href: '/admin/lectures', label: 'Live & Lectures', icon: Video },
     { href: '/admin/trainers', label: 'Trainers', icon: Users },
     { href: '/admin/attendance', label: 'Attendance', icon: Camera },
     { href: '/admin/monitoring', label: 'Login Monitor', icon: Clock },
@@ -115,3 +123,4 @@ export default function Sidebar() {
     </aside>
   );
 }
+

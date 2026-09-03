@@ -983,7 +983,7 @@ export default function TrainerProfilePage() {
                             })}
                           </td>
                           <td className="py-3 px-4 font-mono font-bold text-indigo-700">
-                            {log.previous_balance} → {log.new_balance} ({log.adjustment_amount > 0 ? `+${log.adjustment_amount}` : log.adjustment_amount})
+                            {log.previous_balance ?? log.old_balance} → {log.new_balance} ({(log.adjustment_amount ?? log.adjustment ?? 0) > 0 ? `+${log.adjustment_amount ?? log.adjustment}` : (log.adjustment_amount ?? log.adjustment)})
                           </td>
                           <td className="py-3 px-4 text-slate-700 italic">"{log.reason}"</td>
                           <td className="py-3 px-4 font-bold text-slate-900">{log.modified_by}</td>
