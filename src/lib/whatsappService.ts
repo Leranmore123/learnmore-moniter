@@ -39,16 +39,25 @@ async function callBaileysCreateGroup(name: string, participants: string[]): Pro
 
 async function findGroupJidByName(groupName: string): Promise<string | null> {
   if (!groupName) return null;
+  const targetLower = groupName.toLowerCase().trim();
+  const cleanTarget = targetLower.replace(/[^a-z0-9]/g, '');
+
   for (const baseUrl of BAILEYS_URLS) {
     try {
       const res = await fetch(`${baseUrl}/groups`);
       if (res.ok) {
         const data = await res.json();
         if (data.groups && Array.isArray(data.groups)) {
-          const targetLower = groupName.toLowerCase().trim();
           const match = data.groups.find((g: any) => {
-            const gLower = (g.name || '').toLowerCase().trim();
-            return gLower === targetLower || gLower.includes(targetLower) || targetLower.includes(gLower);
+            const gName = (g.name || g.subject || '').toLowerCase().trim();
+            const cleanGName = gName.replace(/[^a-z0-9]/g, '');
+            if (!cleanGName || !cleanTarget) return false;
+            return (
+              gName === targetLower ||
+              cleanGName === cleanTarget ||
+              cleanGName.includes(cleanTarget) ||
+              cleanTarget.includes(cleanGName)
+            );
           });
           if (match && match.id) return match.id;
         }
@@ -280,25 +289,22 @@ class WhatsAppService {
       `👥 Attendance: ${attendanceSummary}`,
     ].join('\n');
 
-    // 1. Try sending to batch.whatsapp_group_id first
-    let delivered = false;
-    if (batch.whatsapp_group_id && batch.whatsapp_group_id.includes('@g.us')) {
-      try {
-        delivered = await callBaileysSend(batch.whatsapp_group_id, attendanceGroupMessage, false);
-      } catch {}
+    // 1. Try finding live group JID from Baileys first to guarantee real WhatsApp group targeting
+    let targetGroupJid = await findGroupJidByName(batch.whatsapp_group_name || batch.name);
+
+    // 2. Fallback to stored whatsapp_group_id if live search didn't return a match
+    if (!targetGroupJid && batch.whatsapp_group_id && batch.whatsapp_group_id.includes('@g.us')) {
+      targetGroupJid = batch.whatsapp_group_id;
     }
 
-    // 2. If sending failed or ID was missing/simulated, search live Baileys groups by batch name
-    if (!delivered) {
-      const liveGroupJid = await findGroupJidByName(batch.whatsapp_group_name || batch.name);
-      if (liveGroupJid) {
-        try {
-          delivered = await callBaileysSend(liveGroupJid, attendanceGroupMessage, false);
-          if (delivered) {
-            DB.updateBatch(batch.id, { whatsapp_group_id: liveGroupJid });
-          }
-        } catch {}
-      }
+    let delivered = false;
+    if (targetGroupJid) {
+      try {
+        delivered = await callBaileysSend(targetGroupJid, attendanceGroupMessage, false);
+        if (delivered) {
+          DB.updateBatch(batch.id, { whatsapp_group_id: targetGroupJid });
+        }
+      } catch {}
     }
 
     this.botState.totalMessagesDelivered += 1;
