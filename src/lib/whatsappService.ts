@@ -1,6 +1,63 @@
 import { Batch, WorkSession, User, WhatsAppBroadcastLog } from './types';
 import { DB } from './db';
 
+const BAILEYS_URLS = [
+  process.env.BAILEYS_URL || 'http://127.0.0.1:5002',
+  'http://127.0.0.1:5001',
+  'http://localhost:5002',
+  'http://localhost:5001',
+];
+
+async function callBaileysSend(target: string, text: string, withLogo = false): Promise<boolean> {
+  if (!target) return false;
+  for (const baseUrl of BAILEYS_URLS) {
+    try {
+      const res = await fetch(`${baseUrl}/send-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, text, withLogo }),
+      });
+      if (res.ok) return true;
+    } catch {}
+  }
+  return false;
+}
+
+async function callBaileysCreateGroup(name: string, participants: string[]): Promise<any> {
+  for (const baseUrl of BAILEYS_URLS) {
+    try {
+      const res = await fetch(`${baseUrl}/create-group`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, participants }),
+      });
+      if (res.ok) return await res.json();
+    } catch {}
+  }
+  return null;
+}
+
+async function findGroupJidByName(groupName: string): Promise<string | null> {
+  if (!groupName) return null;
+  for (const baseUrl of BAILEYS_URLS) {
+    try {
+      const res = await fetch(`${baseUrl}/groups`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.groups && Array.isArray(data.groups)) {
+          const targetLower = groupName.toLowerCase().trim();
+          const match = data.groups.find((g: any) => {
+            const gLower = (g.name || '').toLowerCase().trim();
+            return gLower === targetLower || gLower.includes(targetLower) || targetLower.includes(gLower);
+          });
+          if (match && match.id) return match.id;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
 export interface WhatsAppBotState {
   isConnected: boolean;
   phoneNumber: string;
@@ -82,17 +139,10 @@ class WhatsAppService {
 
     // Try real Baileys WhatsApp Gateway
     try {
-      const res = await fetch('http://localhost:5001/create-group', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: groupName, participants: participantsList }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.groupId) {
-          groupId = data.groupId;
-          if (data.inviteLink) inviteLink = data.inviteLink;
-        }
+      const data = await callBaileysCreateGroup(groupName, participantsList);
+      if (data && data.success && data.groupId) {
+        groupId = data.groupId;
+        if (data.inviteLink) inviteLink = data.inviteLink;
       }
     } catch {
       // fallback simulation
@@ -189,39 +239,38 @@ class WhatsAppService {
       attendanceSummary = `${presentCount}/${total}`;
     }
 
-    // Send the COMPLETE full list of selected topics without cutting off
     let topicsSummary = '';
-    if (session.selected_topics && session.selected_topics.length > 0) {
+    if (session.description && session.description.trim()) {
+      topicsSummary = session.description.trim();
+    } else if (session.selected_topics && session.selected_topics.length > 0) {
       topicsSummary = session.selected_topics.join(', ');
-    } else if (session.description) {
-      topicsSummary = session.description;
     } else {
       topicsSummary = 'Session completed';
     }
 
-    // Standardized Concise 4-Line Student Group Message
+    // Rich Detailed Work Status Message for Batch Group
     const formattedMessage = [
-      `📚 Batch: ${batch.name}`,
-      `👨‍🏫 Trainer: ${trainer?.name?.split(' ')[0] || batch.trainer_name || 'Trainer'}`,
-      `📌 Topic: ${topicsSummary}`,
-      `✅ Attendance: ${attendanceSummary}`,
+      `📖 *Work Status / Class Session Logged*`,
+      `👨‍🏫 Trainer: ${trainer?.name || session.trainer_name || 'Trainer'}`,
+      `🏷️ Batch: ${batch.name}`,
+      `⏱️ Duration: ${session.hours_taken} Hours`,
+      `📌 Topic / Work Status:`,
+      `${topicsSummary}`,
+      `👥 Student Attendance: ${attendanceSummary}`,
     ].join('\n');
 
-    // Try real Baileys WhatsApp Gateway
-    if (batch.whatsapp_group_id) {
+    // 1. Resolve Target Batch Group JID (Check batch.whatsapp_group_id or resolve group name from Baileys)
+    let targetJid = batch.whatsapp_group_id;
+    if (!targetJid || !targetJid.includes('@g.us')) {
+      const matchedJid = await findGroupJidByName(batch.whatsapp_group_name || batch.name);
+      if (matchedJid) targetJid = matchedJid;
+    }
+
+    // 2. Send Work Status ONLY to the specific Batch WhatsApp Group!
+    if (targetJid && targetJid.includes('@g.us')) {
       try {
-        await fetch('http://localhost:5001/send-message', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            target: batch.whatsapp_group_id,
-            text: formattedMessage,
-            withLogo: false,
-          }),
-        });
-      } catch {
-        // silent
-      }
+        await callBaileysSend(targetJid, formattedMessage, false);
+      } catch {}
     }
 
     this.botState.totalMessagesDelivered += 1;
@@ -241,7 +290,7 @@ class WhatsAppService {
     return {
       success: true,
       messageText: formattedMessage,
-      deliveredTo: batch.whatsapp_group_name || 'Batch WhatsApp Group',
+      deliveredTo: batch.whatsapp_group_name || batch.name || 'Batch WhatsApp Group',
     };
   }
   private attendanceGroup = {
