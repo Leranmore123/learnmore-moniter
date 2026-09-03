@@ -67,6 +67,28 @@ async function runTest() {
 
   const activePort = await findActivePort();
 
+  console.log('\n📱 Checking WhatsApp Bot Connection Status (port 5002)...');
+  try {
+    const statusRes = await new Promise((resolve) => {
+      http.get('http://127.0.0.1:5002/status', (res) => {
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); } catch { resolve(null); }
+        });
+      }).on('error', () => resolve(null));
+    });
+    if (statusRes && statusRes.bot) {
+      console.log(`🤖 WhatsApp Bot State: ${statusRes.bot.isConnected ? '✅ CONNECTED (' + statusRes.bot.phoneNumber + ')' : '⚠️ DISCONNECTED / UNLINKED (Status: ' + statusRes.bot.status + ')'}`);
+      if (!statusRes.bot.isConnected) {
+        console.log('⚠️ ATTENTION: WhatsApp Bot is currently DISCONNECTED or UNLINKED on the server!');
+        console.log('⚠️ Please open http://3.110.237.56:' + activePort + '/admin/whatsapp and SCAN THE QR CODE to link WhatsApp!\n');
+      }
+    } else {
+      console.log('⚠️ WhatsApp Bot port 5002 is not responding.');
+    }
+  } catch (e) {}
+
   const batchName = `LMT-TEST-BATCH-${Date.now().toString().slice(-4)}`;
   console.log(`\n1️⃣ Creating New Batch: "${batchName}" with numbers 9737356415 & 8340729468...`);
 
@@ -106,7 +128,7 @@ async function runTest() {
     });
 
     console.log('✅ Session Work Status API Response:', sessionRes);
-    console.log('\n🎉 ALL TESTS COMPLETED! Check WhatsApp on your phone!');
+    console.log('\n🎉 ALL TESTS COMPLETED!');
   } catch (err) {
     console.error('❌ Test Failed:', err.message);
   }
