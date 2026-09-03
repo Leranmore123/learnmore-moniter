@@ -21,11 +21,8 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar() {
-<<<<<<< HEAD
   const rawPathname = usePathname();
   const pathname = rawPathname || '';
-=======
-  const pathname = usePathname();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
@@ -37,7 +34,6 @@ export default function Sidebar() {
     clearStoredUser();
     router.push('/login');
   };
->>>>>>> 165726b (Fix login form submission, server-side redirect, and sidebar responsiveness)
 
   const links = [
     { href: '/admin/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -58,13 +54,8 @@ export default function Sidebar() {
   const initial = userName.charAt(0).toUpperCase();
 
   return (
-<<<<<<< HEAD
-    <aside className="w-60 shrink-0 hidden lg:flex flex-col bg-white border-r border-slate-200/80 min-h-screen p-4 justify-between" suppressHydrationWarning>
-      <div>
-=======
     <aside className="w-60 shrink-0 hidden lg:flex flex-col bg-white border-r border-slate-200/80 h-screen sticky top-0 p-4 justify-between overflow-hidden">
       <div className="flex flex-col flex-1 overflow-hidden">
->>>>>>> 165726b (Fix login form submission, server-side redirect, and sidebar responsiveness)
         {/* Brand Header */}
         <div className="flex items-center gap-2.5 px-2 py-3 mb-2 shrink-0">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white font-black text-xs shadow-md">
@@ -113,11 +104,6 @@ export default function Sidebar() {
           </div>
         </div>
 
-<<<<<<< HEAD
-        <div className="py-1 px-3 rounded-lg bg-blue-50 text-blue-700 font-bold text-[11px] text-center border border-blue-100" suppressHydrationWarning>
-          11:45 AM • 22 May 2025
-        </div>
-=======
         <button
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs border border-rose-200/60 transition-all cursor-pointer shadow-sm"
@@ -125,9 +111,7 @@ export default function Sidebar() {
           <LogOut className="h-4 w-4 text-rose-500" />
           <span>Logout</span>
         </button>
->>>>>>> 165726b (Fix login form submission, server-side redirect, and sidebar responsiveness)
       </div>
     </aside>
   );
 }
-
