@@ -37,6 +37,27 @@ async function callBaileysCreateGroup(name: string, participants: string[]): Pro
   return null;
 }
 
+async function findGroupJidByName(groupName: string): Promise<string | null> {
+  if (!groupName) return null;
+  for (const baseUrl of BAILEYS_URLS) {
+    try {
+      const res = await fetch(`${baseUrl}/groups`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.groups && Array.isArray(data.groups)) {
+          const targetLower = groupName.toLowerCase().trim();
+          const match = data.groups.find((g: any) => {
+            const gLower = (g.name || '').toLowerCase().trim();
+            return gLower === targetLower || gLower.includes(targetLower) || targetLower.includes(gLower);
+          });
+          if (match && match.id) return match.id;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
 export interface WhatsAppBotState {
   isConnected: boolean;
   phoneNumber: string;
@@ -247,21 +268,24 @@ class WhatsAppService {
       `👥 Attendance: ${attendanceSummary}`,
     ].join('\n');
 
-    // Try real Baileys WhatsApp Gateway for Batch Group
-    if (batch.whatsapp_group_id) {
+    // 1. Try sending to batch.whatsapp_group_id first
+    let delivered = false;
+    if (batch.whatsapp_group_id && batch.whatsapp_group_id.includes('@g.us')) {
       try {
-        await callBaileysSend(batch.whatsapp_group_id, studentGroupMessage, false);
-      } catch {
-        // silent
-      }
+        delivered = await callBaileysSend(batch.whatsapp_group_id, attendanceGroupMessage, false);
+      } catch {}
     }
 
-    // Always broadcast session work update to the official Attendance / Main WhatsApp Group
-    if (this.attendanceGroup.id) {
-      try {
-        await callBaileysSend(this.attendanceGroup.id, attendanceGroupMessage, false);
-      } catch {
-        // silent
+    // 2. If sending failed or ID was missing/simulated, search live Baileys groups by batch name
+    if (!delivered) {
+      const liveGroupJid = await findGroupJidByName(batch.whatsapp_group_name || batch.name);
+      if (liveGroupJid) {
+        try {
+          delivered = await callBaileysSend(liveGroupJid, attendanceGroupMessage, false);
+          if (delivered) {
+            DB.updateBatch(batch.id, { whatsapp_group_id: liveGroupJid });
+          }
+        } catch {}
       }
     }
 
