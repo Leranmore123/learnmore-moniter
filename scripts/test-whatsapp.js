@@ -1,14 +1,43 @@
 const http = require('http');
 
-function postJSON(urlStr, data) {
+function pingPort(port) {
+  return new Promise((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/api/auth/login`, (res) => {
+      resolve(true);
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(1500, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function findActivePort() {
+  const candidatePorts = [3002, 3000, 3001, 8000, 5000];
+  console.log('🔍 Detecting active server port...');
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    for (const port of candidatePorts) {
+      const active = await pingPort(port);
+      if (active) {
+        console.log(`✅ Next.js server detected running on port ${port}!`);
+        return port;
+      }
+    }
+    console.log(`⏳ Waiting for server startup (attempt ${attempt}/5)...`);
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return 3002;
+}
+
+function postJSON(port, path, data) {
   return new Promise((resolve, reject) => {
-    const url = new URL(urlStr);
     const postData = JSON.stringify(data);
     const req = http.request(
       {
-        hostname: url.hostname,
-        port: url.port || 3002,
-        path: url.pathname,
+        hostname: '127.0.0.1',
+        port: port,
+        path: path,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -36,11 +65,13 @@ function postJSON(urlStr, data) {
 async function runTest() {
   console.log('🚀 Starting Full WhatsApp New Group & Work Status Test...\n');
 
+  const activePort = await findActivePort();
+
   const batchName = `LMT-TEST-BATCH-${Date.now().toString().slice(-4)}`;
-  console.log(`1️⃣ Creating New Batch: "${batchName}" with numbers 9737356415 & 8340729468...`);
+  console.log(`\n1️⃣ Creating New Batch: "${batchName}" with numbers 9737356415 & 8340729468...`);
 
   try {
-    const batchRes = await postJSON('http://127.0.0.1:3002/api/batches', {
+    const batchRes = await postJSON(activePort, '/api/batches', {
       name: batchName,
       course_id: 'crs_1',
       course_name: 'Python & Web Development',
@@ -60,7 +91,7 @@ async function runTest() {
     console.log(`📌 Created Batch ID: ${batchId}, WhatsApp Group ID: ${waGroupId}\n`);
 
     console.log('2️⃣ Submitting Work Status for the newly created batch...');
-    const sessionRes = await postJSON('http://127.0.0.1:3002/api/sessions', {
+    const sessionRes = await postJSON(activePort, '/api/sessions', {
       batch_id: batchId,
       trainer_id: 'usr_trainer_1',
       trainer_name: 'KANZARIYA PRATIK',
