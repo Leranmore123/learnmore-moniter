@@ -9,7 +9,13 @@ export async function GET(req: Request) {
 
     let batches = DB.getBatches();
     if (trainer_id) {
-      batches = batches.filter((b) => b.trainer_id === trainer_id);
+      const trainerUser = DB.getUserById(trainer_id);
+      const trainerNameLower = trainerUser?.name?.toLowerCase().trim();
+      batches = batches.filter(
+        (b) =>
+          b.trainer_id === trainer_id ||
+          (trainerNameLower && b.trainer_name?.toLowerCase().trim() === trainerNameLower)
+      );
     }
 
     return NextResponse.json({ success: true, batches });
