@@ -29,7 +29,7 @@ import {
   isDateWeekOff,
   isDateHoliday
 } from './holidays';
-import { CourseSyllabus, INSTITUTE_COURSES } from './syllabusData';
+import { INSTITUTE_COURSES } from './syllabusData';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'institute_db.json');
@@ -47,8 +47,6 @@ interface DatabaseSchema {
   leaveBalances?: Record<string, TrainerLeaveBalance>;
   leaveAuditLogs?: LeaveAuditLog[];
   holidayConfig?: HolidayConfig;
-  courses?: CourseSyllabus[];
-  attendanceGroup?: { id: string; name: string };
 }
 
 function getInitialData(): DatabaseSchema {
@@ -380,54 +378,30 @@ function getInitialData(): DatabaseSchema {
 }
 
 export class DB {
-  private static memoryDB: DatabaseSchema | null = null;
-
   private static ensureDB(): DatabaseSchema {
-    if (this.memoryDB) return this.memoryDB;
-
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(DB_FILE)) {
+      const initData = getInitialData();
+      fs.writeFileSync(DB_FILE, JSON.stringify(initData, null, 2), 'utf-8');
+      return initData;
+    }
     try {
-      if (!fs.existsSync(DATA_DIR)) {
-        try {
-          fs.mkdirSync(DATA_DIR, { recursive: true });
-        } catch {
-          // Read-only filesystem
-        }
-      }
-      if (!fs.existsSync(DB_FILE)) {
-        const initData = getInitialData();
-        try {
-          fs.writeFileSync(DB_FILE, JSON.stringify(initData, null, 2), 'utf-8');
-        } catch {
-          // Read-only filesystem
-        }
-        this.memoryDB = initData;
-        return initData;
-      }
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
-      const parsed = JSON.parse(raw);
-      this.memoryDB = parsed;
-      return parsed;
+      return JSON.parse(raw);
     } catch {
       const initData = getInitialData();
-      this.memoryDB = initData;
+      fs.writeFileSync(DB_FILE, JSON.stringify(initData, null, 2), 'utf-8');
       return initData;
     }
   }
 
   private static saveDB(data: DatabaseSchema): void {
-    this.memoryDB = data;
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        try {
-          fs.mkdirSync(DATA_DIR, { recursive: true });
-        } catch {
-          // Read-only filesystem
-        }
-      }
-      fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
-    } catch {
-      // Read-only filesystem (e.g. Vercel / Netlify)
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
     }
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
   }
 
   // --- Users ---
@@ -532,61 +506,6 @@ export class DB {
     data.sessions = data.sessions.filter((s) => s.batch_id !== id);
     this.saveDB(data);
     return true;
-  }
-
-  // --- Courses & Syllabuses ---
-  static getCourses(): CourseSyllabus[] {
-    const data = this.ensureDB();
-    if (!data.courses || data.courses.length === 0) {
-      data.courses = [...INSTITUTE_COURSES];
-      this.saveDB(data);
-    }
-    return data.courses;
-  }
-
-  static getCourseById(id: string): CourseSyllabus | undefined {
-    return this.getCourses().find((c) => c.id === id);
-  }
-
-  static createCourse(course: Omit<CourseSyllabus, 'id'> & { id?: string }): CourseSyllabus {
-    const data = this.ensureDB();
-    if (!data.courses || data.courses.length === 0) {
-      data.courses = [...INSTITUTE_COURSES];
-    }
-    const id = course.id || `course_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-    const newCourse: CourseSyllabus = {
-      ...course,
-      id,
-    };
-    data.courses.push(newCourse);
-    this.saveDB(data);
-    return newCourse;
-  }
-
-  static updateCourse(id: string, updates: Partial<CourseSyllabus>): CourseSyllabus | null {
-    const data = this.ensureDB();
-    if (!data.courses || data.courses.length === 0) {
-      data.courses = [...INSTITUTE_COURSES];
-    }
-    const idx = data.courses.findIndex((c) => c.id === id);
-    if (idx === -1) return null;
-    data.courses[idx] = { ...data.courses[idx], ...updates };
-    this.saveDB(data);
-    return data.courses[idx];
-  }
-
-  static deleteCourse(id: string): boolean {
-    const data = this.ensureDB();
-    if (!data.courses || data.courses.length === 0) {
-      data.courses = [...INSTITUTE_COURSES];
-    }
-    const initialLen = data.courses.length;
-    data.courses = data.courses.filter((c) => c.id !== id);
-    if (data.courses.length !== initialLen) {
-      this.saveDB(data);
-      return true;
-    }
-    return false;
   }
 
   // --- Work Sessions ---
@@ -904,10 +823,6 @@ export class DB {
     return data.leaves[idx];
   }
 
-  static updateLeave(id: string, updates: Partial<Leave>): Leave | null {
-    return this.updateLeaveStatus(id, (updates.status as 'approved' | 'rejected') || 'approved', updates.admin_notes);
-  }
-
   // --- Real-time 1-Minute Live Activity & Idle Tracking ---
   static getLiveActivities(): Record<string, LiveActivity> {
     const data = this.ensureDB();
@@ -1152,19 +1067,6 @@ export class DB {
     }
     this.saveDB(data);
     return log;
-  }
-
-  // --- Attendance WhatsApp Group Config ---
-  static getAttendanceGroup(): { id: string; name: string } | null {
-    const data = this.ensureDB();
-    return data.attendanceGroup || null;
-  }
-
-  static setAttendanceGroup(group: { id: string; name: string }): { id: string; name: string } {
-    const data = this.ensureDB();
-    data.attendanceGroup = group;
-    this.saveDB(data);
-    return group;
   }
 
   // --- Holiday & Week-Off Configuration ---
@@ -1638,7 +1540,7 @@ export class DB {
     const leaveBalance = this.getTrainerLeaveBalance(trainerId);
 
     // Audit logs for leave changes
-    const auditLogs = (data.leaveAuditLogs || [])
+    const auditLogs = data.leaveAuditLogs
       .filter((l) => l.trainer_id === trainerId)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 

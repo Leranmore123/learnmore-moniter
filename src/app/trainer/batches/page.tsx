@@ -18,13 +18,10 @@ export default function TrainerBatchesPage() {
 
     const fetchBatches = async () => {
       try {
-        const res = await fetch(`/api/batches?trainer_id=${u?.id || ''}`);
+        const res = await fetch('/api/batches');
         const data = await res.json();
         if (data.success) {
-          const myBatches = (data.batches || []).filter(
-            (b: Batch) => b.trainer_id === u?.id || b.trainer_name?.toLowerCase() === u?.name?.toLowerCase()
-          );
-          setBatches(myBatches);
+          setBatches(data.batches || []);
         }
       } catch {
         // silent

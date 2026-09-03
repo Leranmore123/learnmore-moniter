@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { DB } from '@/lib/db';
-import { whatsappService } from '@/lib/whatsappService';
 
 export async function GET() {
   try {
@@ -59,17 +58,6 @@ export async function POST(req: Request) {
         current_batch_id,
         current_batch_name,
       });
-
-      // Automated WhatsApp Broadcast to official group
-      try {
-        await whatsappService.sendStatusUpdateNotification({
-          trainerName: trainer?.name || 'Trainer',
-          status,
-          currentTaskTitle: current_task_title,
-          batchName: current_batch_name,
-        });
-      } catch {}
-
       return NextResponse.json({ success: true, activity: updated });
     }
 

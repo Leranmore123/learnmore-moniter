@@ -34,13 +34,7 @@ export default function WhatsAppDashboardPage() {
   const [qrKey, setQrKey] = useState('init_qr');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Attendance group selection state
-  const [selectedAttendanceGroupId, setSelectedAttendanceGroupId] = useState<string>('');
-  const [selectedAttendanceGroupName, setSelectedAttendanceGroupName] = useState<string>('');
-  const [groupSearchQuery, setGroupSearchQuery] = useState('');
-
   // Test message form
-  const [testGroupId, setTestGroupId] = useState('');
   const [testGroupName, setTestGroupName] = useState('');
   const [testMessage, setTestMessage] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
@@ -62,14 +56,13 @@ export default function WhatsAppDashboardPage() {
         if (botData.bot?.phoneNumber) {
           setCustomPhone(botData.bot.phoneNumber);
         }
-        if (botData.bot?.attendanceGroup?.id) {
-          setSelectedAttendanceGroupId((prev) => prev || botData.bot.attendanceGroup.id);
-          setSelectedAttendanceGroupName((prev) => prev || botData.bot.attendanceGroup.name);
-        }
       }
 
       if (batchData.success) {
         setBatches(batchData.batches || []);
+        if (batchData.batches.length > 0 && !testGroupName) {
+          setTestGroupName(batchData.batches[0].whatsapp_group_name || batchData.batches[0].name);
+        }
       }
     } catch {
       // silent
@@ -110,17 +103,6 @@ export default function WhatsAppDashboardPage() {
   useEffect(() => {
     setMounted(true);
     setQrKey(String(Date.now()));
-
-    // Load persisted group from localStorage if available
-    try {
-      const savedId = localStorage.getItem('selected_attendance_group_id');
-      const savedName = localStorage.getItem('selected_attendance_group_name');
-      if (savedId) {
-        setSelectedAttendanceGroupId(savedId);
-        if (savedName) setSelectedAttendanceGroupName(savedName);
-      }
-    } catch {}
-
     fetchAllData();
 
     // Auto-poll every 3s to detect live WhatsApp connection
@@ -128,17 +110,10 @@ export default function WhatsAppDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleRefreshQr = async () => {
-    setNotice('🔄 Resetting session & generating fresh live QR Code...');
-    try {
-      await fetch('/api/whatsapp/bot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'refresh_qr' }),
-      });
-      setTimeout(fetchAllData, 1500);
-    } catch {}
+  const handleRefreshQr = () => {
     setQrKey(String(Date.now()));
+    setNotice('🔄 New QR Code generated. Scan it with your WhatsApp!');
+    setTimeout(() => setNotice(null), 3000);
   };
 
   const handleSimulateScan = async () => {
@@ -167,26 +142,17 @@ export default function WhatsAppDashboardPage() {
 
   const handleToggleBot = async () => {
     try {
-      if (botStatus?.isConnected) {
-        setNotice('🔄 Disconnecting and resetting WhatsApp session...');
-        await fetch('/api/whatsapp/bot', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'refresh_qr' }),
-        });
-        setTimeout(fetchAllData, 1500);
-      } else {
-        const res = await fetch('/api/whatsapp/bot', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'connect', phone: customPhone }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setBotStatus(data.bot);
-          setNotice(data.message);
-          setTimeout(() => setNotice(null), 3000);
-        }
+      const action = botStatus?.isConnected ? 'disconnect' : 'connect';
+      const res = await fetch('/api/whatsapp/bot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, phone: customPhone }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBotStatus(data.bot);
+        setNotice(data.message);
+        setTimeout(() => setNotice(null), 3000);
       }
     } catch {
       // silent
@@ -205,7 +171,7 @@ export default function WhatsAppDashboardPage() {
         body: JSON.stringify({
           action: 'send_test',
           message: testMessage,
-          target: testGroupId,
+          groupName: testGroupName || 'Test Batch WhatsApp Group',
         }),
       });
       const data = await res.json();
@@ -342,198 +308,70 @@ export default function WhatsAppDashboardPage() {
 
             <div className="px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs font-bold flex items-center gap-2 self-start">
               <span className="h-2.5 w-2.5 rounded-full bg-[#25D366] animate-ping" />
-              <span>Active Group: <strong>{selectedAttendanceGroupName || botStatus?.attendanceGroup?.name || 'No group selected'}</strong></span>
+              <span>Active Group: <strong>{botStatus?.attendanceGroup?.name || 'LEARNMORE-Login-Logout'}</strong></span>
             </div>
           </div>
 
           {/* Group Picker Dropdown */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2">
-            <div className="sm:col-span-8 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block text-[11px] font-bold text-emerald-200 uppercase">
-                  Select WhatsApp Group ({botStatus?.availableGroups?.length || 0} Groups Available):
-                </label>
-                <span className="text-[10px] text-emerald-300 font-medium">
-                  ⭐ Login/Logout groups pinned at top
-                </span>
-              </div>
-
-              {/* Quick Search Input */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="🔍 Type to search among 600+ groups (e.g. login, logout, python)..."
-                  value={groupSearchQuery}
-                  onChange={(e) => setGroupSearchQuery(e.target.value)}
-                  className="w-full bg-white/15 text-white placeholder-emerald-200/80 text-xs rounded-xl px-3 py-2 border border-white/20 focus:outline-none focus:bg-white/25 font-medium transition-all"
-                />
-                {groupSearchQuery && (
-                  <button
-                    onClick={() => setGroupSearchQuery('')}
-                    className="px-2.5 py-1.5 text-xs rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-
-              {(() => {
-                const allGroups = (botStatus?.availableGroups || []) as any[];
-                
-                // Identify Login / Logout / Attendance related groups to PIN AT TOP
-                const pinned = allGroups.filter((g: any) => {
-                  const n = (g.name || '').toLowerCase();
-                  return n.includes('login') || n.includes('logout') || n.includes('attendance') || n.includes('learnmore');
-                });
-
-                const others = allGroups
-                  .filter((g: any) => {
-                    const n = (g.name || '').toLowerCase();
-                    return !n.includes('login') && !n.includes('logout') && !n.includes('attendance') && !n.includes('learnmore');
-                  })
-                  .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
-
-                const query = groupSearchQuery.trim().toLowerCase();
-                const filteredPinned = query ? pinned.filter((g: any) => (g.name || '').toLowerCase().includes(query)) : pinned;
-                const filteredOthers = query ? others.filter((g: any) => (g.name || '').toLowerCase().includes(query)) : others;
-
-                return (
-                  <select
-                    value={selectedAttendanceGroupId || botStatus?.attendanceGroup?.id || ''}
-                    onChange={async (e) => {
-                      const selectedId = e.target.value;
-
-                      if (!selectedId) {
-                        setSelectedAttendanceGroupId('');
-                        setSelectedAttendanceGroupName('');
-                        try {
-                          localStorage.removeItem('selected_attendance_group_id');
-                          localStorage.removeItem('selected_attendance_group_name');
-                        } catch {}
-                        return;
-                      }
-
-                      const selectedGroup = allGroups.find((g: any) => g.id === selectedId);
-                      const groupName = selectedGroup ? selectedGroup.name : (selectedId === '120363231853245188@g.us' ? 'LEARNMORE-Login-Logout' : 'Selected WhatsApp Group');
-
-                      // Immediately update UI state so it stays selected
-                      setSelectedAttendanceGroupId(selectedId);
-                      setSelectedAttendanceGroupName(groupName);
-                      try {
-                        localStorage.setItem('selected_attendance_group_id', selectedId);
-                        localStorage.setItem('selected_attendance_group_name', groupName);
-                      } catch {}
-
-                      try {
-                        const res = await fetch('/api/whatsapp/bot', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            action: 'set_attendance_group',
-                            groupId: selectedId,
-                            groupName: groupName,
-                          }),
-                        });
-
-                        const data = await res.json();
-
-                        if (data.success) {
-                          setNotice(`✅ Attendance group updated to "${groupName}"!`);
-                          setBotStatus((prev: any) => ({
-                            ...prev,
-                            attendanceGroup: data.attendanceGroup || { id: selectedId, name: groupName },
-                          }));
-                        } else {
-                          setNotice(`❌ ${data.error || 'Failed to update group'}`);
-                        }
-                      } catch {
-                        setNotice('❌ Failed to update WhatsApp group on server.');
-                      }
-                    }}
-                    className="w-full rounded-xl bg-white text-slate-800 text-xs font-bold px-3.5 py-2.5 border border-emerald-300 focus:outline-none shadow-sm cursor-pointer"
-                  >
-                    <option value="">
-                      -- Choose WhatsApp Group ({allGroups.length} Loaded) --
+            <div className="sm:col-span-8">
+              <label className="block text-[11px] font-bold text-emerald-200 uppercase mb-1">
+                Select from your WhatsApp Groups ({botStatus?.availableGroups?.length || 0} Groups Available):
+              </label>
+              <select
+                value={botStatus?.attendanceGroup?.id || '120363231853245188@g.us'}
+                onChange={async (e) => {
+                  const selectedId = e.target.value;
+                  const selectedGroup = botStatus?.availableGroups?.find((g: any) => g.id === selectedId);
+                  if (selectedGroup) {
+                    await fetch('/api/whatsapp/bot', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        action: 'set_attendance_group',
+                        groupId: selectedGroup.id,
+                        groupName: selectedGroup.name,
+                      }),
+                    });
+                    setNotice(`✅ Attendance group updated to "${selectedGroup.name}"!`);
+                    fetchAllData();
+                  }
+                }}
+                className="w-full rounded-xl bg-white text-slate-800 text-xs font-bold px-3.5 py-2.5 border border-emerald-300 focus:outline-none shadow-sm cursor-pointer"
+              >
+                <option value="120363231853245188@g.us">
+                  ⭐ LEARNMORE-Login-Logout (17 Members - Recommended)
+                </option>
+                {botStatus?.availableGroups
+                  ?.filter((g: any) => g.id !== '120363231853245188@g.us')
+                  ?.map((g: any) => (
+                    <option key={g.id} value={g.id}>
+                      👥 {g.name} ({g.size} Members)
                     </option>
-
-                    {/* Default LEARNMORE Option if not matched in query */}
-                    {(!query || 'learnmore-login-logout'.includes(query)) && (
-                      <option value="120363231853245188@g.us">
-                        ⭐ LEARNMORE-Login-Logout (Default Institute Attendance Group)
-                      </option>
-                    )}
-
-                    {filteredPinned.length > 0 && (
-                      <optgroup label="⭐ Pinned Login / Logout Groups">
-                        {filteredPinned.map((g: any) => (
-                          <option key={g.id} value={g.id}>
-                            ⭐ {g.name} ({g.participants ?? g.size ?? 0} Members)
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-
-                    {filteredOthers.length > 0 && (
-                      <optgroup label={`👥 All WhatsApp Groups (${filteredOthers.length} available)`}>
-                        {filteredOthers.map((g: any) => (
-                          <option key={g.id} value={g.id}>
-                            👥 {g.name} ({g.participants ?? g.size ?? 0} Members)
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                );
-              })()}
+                  ))}
+              </select>
             </div>
 
             <div className="sm:col-span-4 flex items-end">
               <button
                 onClick={async () => {
                   try {
-                    const targetId = selectedAttendanceGroupId || botStatus?.attendanceGroup?.id || '120363231853245188@g.us';
-                    const targetName = selectedAttendanceGroupName || botStatus?.attendanceGroup?.name || 'LEARNMORE-Login-Logout';
-
-                    const formattedTime = new Date().toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true,
-                    });
-                    const formattedDate = new Date().toLocaleDateString('en-GB', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                    });
-
-                    const testCheckInText = [
-                      `👨‍🏫 Trainer Name: Rahul Sharma (Senior Full-Stack Trainer)`,
-                      `📱 WhatsApp: +91 8340729468`,
-                      `⏰ Login Time: ${formattedTime}`,
-                      `📅 Date: ${formattedDate}`,
-                    ].join('\n');
-
-                    // Directly send test broadcast to the selected attendance group
-                    const res = await fetch('/api/whatsapp/bot', {
+                    const res = await fetch('/api/attendance', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        action: 'send_test',
-                        target: targetId,
-                        message: testCheckInText,
+                        trainer_id: 'usr_trainer_1',
+                        type: 'in',
+                        location_name: 'Learnmore Technologies Campus Lab 1',
                       }),
                     });
-
                     const d = await res.json();
                     if (d.success) {
-                      setNotice(`✅ Live Test Check-In Broadcast Sent to "${targetName}"!`);
+                      setNotice('✅ Live Test Check-In Broadcast Sent to LEARNMORE-Login-Logout Group!');
                       fetchAllData();
-                    } else {
-                      setNotice(`❌ Error: ${d.error || 'Failed to send check-in message'}`);
                     }
-                  } catch (e: any) {
-                    setNotice(`❌ Error: ${e.message}`);
+                  } catch {
+                    // silent
                   }
                 }}
                 className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-emerald-50 text-emerald-950 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
@@ -653,29 +491,16 @@ export default function WhatsAppDashboardPage() {
                     SELECT BATCH / WHATSAPP GROUP
                   </label>
                   <select
-                    value={testGroupId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setTestGroupId(id);
-
-                      const group =
-                        botStatus?.availableGroups?.find(
-                          (g: any) => g.id === id
-                        );
-
-                      setTestGroupName(group?.name || '');
-                    }}
+                    value={testGroupName}
+                    onChange={(e) => setTestGroupName(e.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-slate-800 font-medium focus:border-indigo-500 focus:outline-none transition-all cursor-pointer"
                   >
-                    <option value="">
-                      -- Select WhatsApp Group --
-                    </option>
-
-                    {botStatus?.availableGroups?.map((g: any) => (
-                      <option key={g.id} value={g.id}>
-                        👥 {g.name} ({g.participants ?? g.size ?? 0} Members)
+                    {batches.map((b) => (
+                      <option key={b.id} value={b.whatsapp_group_name || b.name}>
+                        {b.whatsapp_group_name || b.name} ({b.trainer_name})
                       </option>
                     ))}
+                    <option value="Demo General WhatsApp Group">Demo General WhatsApp Group</option>
                   </select>
                 </div>
 

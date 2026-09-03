@@ -40,10 +40,6 @@ export interface Batch {
   whatsapp_group_id?: string;
   whatsapp_group_link?: string;
   auto_whatsapp_group?: boolean;
-  timing?: string;
-  classroom?: string;
-  completed_hours?: number;
-  code?: string;
 }
 
 export interface WhatsAppBroadcastLog {
@@ -97,7 +93,7 @@ export interface WorkSession {
   created_at: string;
 }
 
-export type DayStatus = 'present' | 'half_day' | 'leave' | 'pending' | 'absent' | 'weekoff' | 'holiday';
+export type DayStatus = 'present' | 'half_day' | 'leave' | 'pending';
 
 export interface TrainerAttendance {
   id: string;
@@ -114,13 +110,6 @@ export interface TrainerAttendance {
   location_name?: string | null;
   day_status: DayStatus;
   created_at: string;
-  check_in_time?: string | null;
-  check_out_time?: string | null;
-  selfie_in_url?: string | null;
-  total_work_minutes?: number | null;
-  latitude_in?: string | null;
-  longitude_in?: string | null;
-  device_info?: string | null;
 }
 
 export type LeaveType = 'sick' | 'casual' | 'emergency' | 'weekoff' | 'optional_holiday';
@@ -155,7 +144,6 @@ export interface LiveActivity {
   total_teaching_today_minutes: number;
   total_task_today_minutes: number;
   is_logged_in: boolean;
-  idle_reason?: string;
 }
 
 export type TaskCategory = 'doubt_solving' | 'paper_checking' | 'calling' | 'curriculum_planning' | 'lab_assistance' | 'other';
@@ -170,7 +158,7 @@ export interface TaskLog {
   end_time?: string | null;
   duration_minutes: number;
   notes?: string;
-  is_completed: false | true;
+  is_completed: boolean;
   created_at: string;
 }
 
@@ -221,9 +209,6 @@ export interface LeaveAuditLog {
   adjustment: number;
   reason: string;
   created_at: string;
-  previous_balance?: number;
-  adjustment_amount?: number;
-  modified_by?: string;
 }
 
 export interface HolidayConfig {
@@ -258,6 +243,3 @@ export interface TrainerMonitoringRow {
   status_badge: TrainerLiveLoginStatus;
   device_ip?: string;
 }
-
-export type BatchTopicCoverage = TopicCoverageProgress;
-

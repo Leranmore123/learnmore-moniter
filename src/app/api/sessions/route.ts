@@ -51,21 +51,10 @@ export async function POST(req: Request) {
       total_students_leave: leaveCount,
     });
 
-    const batchObj = batch || ({
-      id: body.batch_id,
-      name: body.batch_name || 'Training Batch',
-      trainer_id: body.trainer_id,
-      trainer_name: trainer?.name || body.trainer_name || 'Trainer',
-      total_hours: 0,
-      total_students: rawAttendance.length,
-      whatsapp_group_id: '',
-      whatsapp_group_name: '',
-    } as any);
-
     let whatsappResult = null;
-    if (body.whatsapp_sent !== false) {
+    if (batch && body.whatsapp_sent !== false) {
       whatsappResult = await whatsappService.sendSessionUpdate({
-        batch: batchObj,
+        batch,
         session,
         trainer: trainer || null,
       });

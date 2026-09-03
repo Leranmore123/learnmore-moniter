@@ -165,7 +165,7 @@ export default function AdminAttendancePage() {
                           className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium group"
                         >
                           <MapPin className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-                          <span>{(record?.latitude_in && record?.longitude_in) ? `${Number(record.latitude_in).toFixed(4)}, ${Number(record.longitude_in).toFixed(4)}` : '23.0225, 72.5714'}</span>
+                          <span>{record?.latitude_in ? `${record.latitude_in.toFixed(4)}, ${record.longitude_in.toFixed(4)}` : '23.0225, 72.5714'}</span>
                           <ExternalLink className="h-3 w-3 text-slate-400 group-hover:text-blue-600" />
                         </a>
                         <div className="text-[10px] text-slate-400 mt-0.5">

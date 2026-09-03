@@ -2,18 +2,7 @@ import { NextResponse } from 'next/server';
 import { whatsappService } from '@/lib/whatsappService';
 import { DB } from '@/lib/db';
 
-const DEFAULT_BAILEYS_URL = process.env.BAILEYS_URL || 'http://127.0.0.1:5002';
-
-async function fetchFromBaileys(path: string, options?: RequestInit): Promise<Response | null> {
-  const urls = [DEFAULT_BAILEYS_URL, 'http://127.0.0.1:5001'];
-  for (const u of urls) {
-    try {
-      const res = await fetch(`${u}${path}`, { ...options, cache: 'no-store' });
-      if (res.ok) return res;
-    } catch {}
-  }
-  return null;
-}
+const BAILEYS_URL = 'http://localhost:5001';
 
 export async function GET() {
   try {
@@ -21,11 +10,11 @@ export async function GET() {
     let availableGroups: any[] = [];
     try {
       const [statusRes, groupsRes] = await Promise.all([
-        fetchFromBaileys('/status'),
-        fetchFromBaileys('/groups'),
+        fetch(`${BAILEYS_URL}/status`, { cache: 'no-store' }),
+        fetch(`${BAILEYS_URL}/groups`, { cache: 'no-store' }),
       ]);
-      if (statusRes && statusRes.ok) liveBaileys = await statusRes.json();
-      if (groupsRes && groupsRes.ok) {
+      if (statusRes.ok) liveBaileys = await statusRes.json();
+      if (groupsRes.ok) {
         const gData = await groupsRes.json();
         availableGroups = gData.groups || [];
       }
@@ -37,11 +26,8 @@ export async function GET() {
     const logs = DB.getWhatsAppLogs();
     const attendanceGroup = whatsappService.getAttendanceGroup();
 
-    // If live Baileys is active use its connection state; if offline or manual connect, use fallbackStatus
-    const isBotConnected = liveBaileys?.bot ? !!liveBaileys.bot.isConnected : fallbackStatus.isConnected;
-
     const bot = {
-      isConnected: isBotConnected,
+      isConnected: liveBaileys?.bot?.isConnected ?? fallbackStatus.isConnected,
       phoneNumber: liveBaileys?.bot?.phoneNumber || fallbackStatus.phoneNumber,
       botName: 'Learnmore Technologies WhatsApp Gateway',
       lastSyncAt: new Date().toISOString(),
@@ -68,19 +54,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, phone, message, groupName, groupId, target } = body;
 
-    if (action === 'refresh_qr') {
-      try {
-        const res = await fetchFromBaileys('/reset-auth');
-        if (res) {
-          const data = await res.json();
-          return NextResponse.json(data);
-        }
-        return NextResponse.json({ success: true, message: 'Reset requested' });
-      } catch (e: any) {
-        return NextResponse.json({ success: false, error: e.message });
-      }
-    }
-
     if (action === 'set_attendance_group') {
       if (!groupId || !groupName) {
         return NextResponse.json({ error: 'Group ID and Name are required' }, { status: 400 });
@@ -91,16 +64,13 @@ export async function POST(req: Request) {
 
     if (action === 'pair_code') {
       try {
-        const res = await fetchFromBaileys('/pair-code', {
+        const res = await fetch(`${BAILEYS_URL}/pair-code`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phone }),
         });
-        if (res) {
-          const data = await res.json();
-          return NextResponse.json(data);
-        }
-        return NextResponse.json({ success: false, error: 'Baileys not responding' });
+        const data = await res.json();
+        return NextResponse.json(data);
       } catch (e: any) {
         return NextResponse.json({ success: false, error: e.message });
       }
@@ -119,7 +89,7 @@ export async function POST(req: Request) {
     if (action === 'send_test') {
       // Try to send via real Baileys if connected
       try {
-        await fetchFromBaileys('/send-message', {
+        await fetch(`${BAILEYS_URL}/send-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

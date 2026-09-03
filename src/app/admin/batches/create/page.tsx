@@ -94,15 +94,6 @@ export default function CreateBatchPage() {
           }
         }
       });
-
-    fetch('/api/syllabus')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.courses?.length > 0) {
-          setCourses(data.courses);
-        }
-      })
-      .catch(() => {});
   }, []);
 
   // WhatsApp Group Naming Builder States

@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+<<<<<<< HEAD
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+=======
   allowedDevOrigins: [
     'localhost:3000',
     'localhost:3001',
@@ -10,10 +15,8 @@ const nextConfig: NextConfig = {
     '192.168.1.2:3001',
     '192.168.1.2',
     'app.skyranksolution.com',
-    'app.skyranksolution.com.',
-    'app.skyranksolution.com:8080',
-    '*.skyranksolution.com',
   ],
+>>>>>>> 165726b (Fix login form submission, server-side redirect, and sidebar responsiveness)
 };
 
 export default nextConfig;

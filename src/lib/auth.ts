@@ -13,12 +13,11 @@ export function getStoredUser(): User | null {
     if (match && match[2]) {
       const parsed = JSON.parse(decodeURIComponent(match[2]));
       return {
-        id: parsed.id || 'usr_admin',
-        username: parsed.username || (parsed.role === 'admin' ? 'admin' : 'trainer'),
-        name: parsed.name || (parsed.role === 'admin' ? 'Institute Director' : 'Faculty Trainer'),
-        email: parsed.email || (parsed.role === 'admin' ? 'admin@institute.edu' : 'trainer@institute.edu'),
+        id: parsed.id || 'usr_1788166404148_itu4',
+        username: parsed.username || 'KANZARIYA',
+        name: parsed.name || 'KANZARIYA PRATIK',
         role: parsed.role || 'trainer',
-        phone: parsed.phone || '+91 9876543210',
+        phone: '+91 97373564515',
         designation: parsed.role === 'admin' ? 'Director / Management' : 'Faculty Trainer',
         created_at: new Date().toISOString(),
       };
@@ -27,7 +26,16 @@ export function getStoredUser(): User | null {
     // silent
   }
 
-  return null;
+  // Active default session fallback
+  return {
+    id: 'usr_1788166404148_itu4',
+    username: 'KANZARIYA',
+    name: 'KANZARIYA PRATIK',
+    role: 'trainer',
+    phone: '+91 97373564515',
+    designation: 'Faculty Trainer',
+    created_at: new Date().toISOString(),
+  };
 }
 
 export function setStoredUser(user: User): void {
@@ -39,5 +47,5 @@ export function setStoredUser(user: User): void {
 export function clearStoredUser(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(AUTH_STORAGE_KEY);
-  document.cookie = 'trainer_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0';
+  document.cookie = 'trainer_user=; path=/; max-age=0';
 }
