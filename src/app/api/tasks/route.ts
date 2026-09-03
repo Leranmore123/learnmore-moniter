@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { DB } from '@/lib/db';
+import { whatsappService } from '@/lib/whatsappService';
 
 export async function GET(req: Request) {
   try {
@@ -29,6 +30,16 @@ export async function POST(req: Request) {
         category: category || 'doubt_solving',
         notes,
       });
+
+      // Automated WhatsApp Broadcast to LEARNMORE-Login-Logout group
+      await whatsappService.sendTaskUpdate({
+        trainerName: trainer?.name || 'Trainer',
+        title,
+        action: 'started',
+        category,
+        notes,
+      });
+
       return NextResponse.json({ success: true, task: newTask });
     }
 
@@ -40,6 +51,17 @@ export async function POST(req: Request) {
       if (!completed) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 });
       }
+
+      // Automated WhatsApp Broadcast to LEARNMORE-Login-Logout group
+      await whatsappService.sendTaskUpdate({
+        trainerName: completed.trainer_name || 'Trainer',
+        title: completed.title,
+        action: 'completed',
+        category: completed.category,
+        durationMinutes: completed.duration_minutes,
+        notes: completed.notes,
+      });
+
       return NextResponse.json({ success: true, task: completed });
     }
 

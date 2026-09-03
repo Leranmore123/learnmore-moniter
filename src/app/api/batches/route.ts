@@ -81,6 +81,14 @@ export async function POST(req: Request) {
       });
     }
 
+    // Automatically notify the main Attendance Group about new batch assignment
+    if (trainer) {
+      await whatsappService.sendBatchAssignment({
+        batch: newBatch,
+        trainer,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       batch: newBatch,
@@ -106,14 +114,26 @@ export async function PATCH(req: Request) {
       updates.whatsapp_group_name = updates.name; // Keep Batch Name and WhatsApp Group Name 100% identical
     }
 
+    let assignedTrainer = null;
     if (updates.trainer_id) {
       const trainer = DB.getUserById(updates.trainer_id);
-      if (trainer) updates.trainer_name = trainer.name;
+      if (trainer) {
+        updates.trainer_name = trainer.name;
+        assignedTrainer = trainer;
+      }
     }
 
     const updated = DB.updateBatch(body.id, updates);
     if (!updated) {
       return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
+    }
+
+    // If trainer was newly assigned or updated, broadcast to WhatsApp group
+    if (assignedTrainer) {
+      await whatsappService.sendBatchAssignment({
+        batch: updated,
+        trainer: assignedTrainer,
+      });
     }
 
     return NextResponse.json({ success: true, batch: updated });

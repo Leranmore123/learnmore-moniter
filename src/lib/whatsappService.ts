@@ -245,6 +245,15 @@ class WhatsAppService {
       }
     }
 
+    // Also broadcast session work update to the official Attendance / Main WhatsApp Group
+    if (this.attendanceGroup.id && this.attendanceGroup.id !== batch.whatsapp_group_id) {
+      try {
+        await callBaileysSend(this.attendanceGroup.id, formattedMessage, false);
+      } catch {
+        // silent
+      }
+    }
+
     this.botState.totalMessagesDelivered += 1;
 
     // Save to Database logs with complete text
@@ -264,6 +273,58 @@ class WhatsAppService {
       messageText: formattedMessage,
       deliveredTo: batch.whatsapp_group_name || 'Batch WhatsApp Group',
     };
+  }
+
+  /**
+   * Broadcasts Trainer Task Start & Completion to the official Attendance WhatsApp group
+   */
+  public async sendTaskUpdate(params: {
+    trainerName: string;
+    title: string;
+    action: 'started' | 'completed';
+    category?: string;
+    durationMinutes?: number;
+    notes?: string;
+  }): Promise<void> {
+    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const formattedTaskMsg = [
+      `📋 *Work Task ${params.action === 'started' ? 'Started 🚀' : 'Completed ✅'}*`,
+      `👨‍🏫 Trainer: ${params.trainerName}`,
+      `📌 Task: ${params.title}`,
+      params.durationMinutes ? `⏱️ Duration: ${params.durationMinutes} mins` : null,
+      params.notes ? `📝 Notes: ${params.notes}` : null,
+      `⏰ Time: ${timeStr}`,
+    ].filter(Boolean).join('\n');
+
+    if (this.attendanceGroup.id) {
+      try {
+        await callBaileysSend(this.attendanceGroup.id, formattedTaskMsg, false);
+      } catch {}
+    }
+  }
+
+  /**
+   * Broadcasts Batch Trainer Assignment to the official Attendance WhatsApp group
+   */
+  public async sendBatchAssignment(params: {
+    batch: Batch;
+    trainer: User;
+  }): Promise<void> {
+    const formattedAssignmentMsg = [
+      `📚 *New Batch Assigned to Trainer*`,
+      `👨‍🏫 Trainer: ${params.trainer.name}`,
+      `🏷️ Batch: ${params.batch.name}`,
+      `📖 Course: ${params.batch.course_name || 'Technical Course'}`,
+      `⏱️ Total Hours: ${params.batch.total_hours} Hours`,
+      `👥 Total Students: ${params.batch.total_students || 0}`,
+      `📅 Start Date: ${params.batch.start_date || 'Immediate'}`,
+    ].join('\n');
+
+    if (this.attendanceGroup.id) {
+      try {
+        await callBaileysSend(this.attendanceGroup.id, formattedAssignmentMsg, false);
+      } catch {}
+    }
   }
   private attendanceGroup = {
     id: '120363231853245188@g.us',
