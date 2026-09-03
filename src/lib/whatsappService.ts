@@ -192,14 +192,26 @@ class WhatsAppService {
       `Daily attendance and class topic updates will be shared in this group automatically.`,
     ].join('\n');
 
-    // Try real Baileys WhatsApp Gateway with slight delay for group propagation
-    if (batch.whatsapp_group_id) {
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        await callBaileysSend(batch.whatsapp_group_id, welcomeMessage, false);
-      } catch {
-        // silent
+    let sent = false;
+    let targetJid = batch.whatsapp_group_id;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (!targetJid || !targetJid.includes('@g.us')) {
+        const liveGroupJid = await findGroupJidByName(batch.whatsapp_group_name || batch.name);
+        if (liveGroupJid) targetJid = liveGroupJid;
       }
+
+      if (targetJid && targetJid.includes('@g.us')) {
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          sent = await callBaileysSend(targetJid, welcomeMessage, false);
+          if (sent) {
+            DB.updateBatch(batch.id, { whatsapp_group_id: targetJid });
+            break;
+          }
+        } catch {}
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
     this.botState.totalMessagesDelivered += 1;
@@ -413,9 +425,15 @@ class WhatsAppService {
       `📅 Start Date: ${params.batch.start_date || 'Immediate'}`,
     ].join('\n');
 
-    if (this.attendanceGroup.id) {
+    let targetJid = params.batch.whatsapp_group_id;
+    if (!targetJid || !targetJid.includes('@g.us')) {
+      const matched = await findGroupJidByName(params.batch.whatsapp_group_name || params.batch.name);
+      if (matched) targetJid = matched;
+    }
+
+    if (targetJid && targetJid.includes('@g.us')) {
       try {
-        await callBaileysSend(this.attendanceGroup.id, formattedAssignmentMsg, false);
+        await callBaileysSend(targetJid, formattedAssignmentMsg, false);
       } catch {}
     }
   }
