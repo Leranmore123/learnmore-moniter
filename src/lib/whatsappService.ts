@@ -17,7 +17,10 @@ async function callBaileysSend(target: string, text: string, withLogo = false): 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target, text, withLogo }),
       });
-      if (res.ok) return true;
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success !== false) return true;
+      }
     } catch {}
   }
   return false;
@@ -31,7 +34,10 @@ async function callBaileysCreateGroup(name: string, participants: string[]): Pro
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, participants }),
       });
-      if (res.ok) return await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success) return data;
+      }
     } catch {}
   }
   return null;
